@@ -1,0 +1,6 @@
+{"type":"user","sessionId":"sess-abc","cwd":"/Users/z/proj","gitBranch":"main","timestamp":"2026-06-20T08:00:00Z","message":{"role":"user","content":"Fix the bug in foo.ts"}}
+{"type":"system","subtype":"init","timestamp":"2026-06-20T08:00:01Z"}
+{"type":"assistant","timestamp":"2026-06-20T08:00:05Z","message":{"role":"assistant","model":"claude-opus-4-8","content":[{"type":"text","text":"I'll read the file."},{"type":"tool_use","id":"tu_1","name":"Read","input":{"file_path":"foo.ts"}}],"usage":{"input_tokens":1200,"output_tokens":45,"cache_read_input_tokens":8000,"cache_creation_input_tokens":100}}}
+{"type":"user","timestamp":"2026-06-20T08:00:06Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu_1","content":"export const foo = 1;"}]}}
+{"type":"ai-title","timestamp":"2026-06-20T08:00:07Z","title":"Fix bug in foo.ts"}
+{"type":"assistant","timestamp":"2026-06-20T08:00:10Z","message":{"role":"assistant","model":"claude-opus-4-8","content":[{"type":"text","text":"Fixed it."}],"usage":{"input_tokens":1300,"output_tokens":12}}}

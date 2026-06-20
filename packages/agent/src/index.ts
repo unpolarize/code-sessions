@@ -1,0 +1,18 @@
+// Public library API for the code-sessions agent (the CLI lives in cli.ts).
+export * from './config';
+export * from './capture';
+export * from './state';
+export * from './tail';
+export * from './hygiene';
+export * from './pricing';
+export * from './ipc';
+export * from './daemon';
+export * from './commands';
+export { parseFlags, overridesFromFlags } from './cliargs';
+export * from './store/paths';
+export * from './store/writer';
+export * from './store/git';
+export * from './store/scan';
+export * from './insights/index';
+export * from './hooks/install';
+export * from './hooks/shim';

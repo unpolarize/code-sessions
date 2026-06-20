@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "noEmit": false,
+    "paths": {
+      "@unpolarize/code-sessions-schema": ["../schema/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@unpolarize/code-sessions-schema": ["./packages/schema/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/schema/src",
+    "packages/agent/src"
+  ]
+}

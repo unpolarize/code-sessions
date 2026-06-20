@@ -1,0 +1,47 @@
+# The free "background brain" — drop this into YOUR sessions store repo
+# (e.g. zhirafovod/sessions) at .github/workflows/insights.yml.
+#
+# On a schedule it re-derives insights and rebuilds analytics over the whole
+# store, committing the results back — no server required (MVP-2, Phase A).
+#
+# Provider defaults to `fake` (deterministic heuristics, zero cost). To use a
+# real model, set provider + the matching secret (e.g. ANTHROPIC_API_KEY for
+# `claude`), or point `--provider ollama` at a self-hosted runner with Ollama.
+
+name: sessions-insights
+
+on:
+  schedule:
+    - cron: '17 6 * * *' # daily 06:17 UTC
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: insights provider (fake|claude|grok|ollama)
+        default: fake
+
+permissions:
+  contents: write
+
+jobs:
+  insights:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install code-sessions
+        run: npm install -g @unpolarize/code-sessions
+      - name: Reindex insights
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: code-sessions reindex --store "$GITHUB_WORKSPACE" --provider "${{ github.event.inputs.provider || 'fake' }}"
+      - name: Build analytics
+        run: code-sessions analytics --store "$GITHUB_WORKSPACE"
+      - name: Commit derived artifacts
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git add -A
+          git diff --cached --quiet || git commit -m "insights: scheduled reindex + analytics"
+          git push

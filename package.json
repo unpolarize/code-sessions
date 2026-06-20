@@ -1,0 +1,27 @@
+{
+  "name": "code-sessions-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Headless, event-driven cross-agent session capture store",
+  "workspaces": [
+    "packages/schema",
+    "packages/agent"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}
