@@ -53,11 +53,12 @@ Commands:
   install-hooks   Install Claude Code hooks that feed the daemon
   install-skills  Install the cs-label-session skill into agents [--agent claude|codex|grok|all]
   hook            (internal) forward a hook payload from stdin to the daemon
-  backfill        Import existing transcripts into the store [--agent claude|grok|codex|all]
+  backfill        Import existing transcripts into the store [--agent claude|grok|codex|codebuild|all]
   reindex         (Re)derive insights for stored sessions  [--since YYYY-MM]
   export          Export stored sessions as OTLP to a collector  [--since YYYY-MM]
   index           (Re)build the internal SQLite index from the git store
   query           List recent sessions from the index  [--limit N] [--agent X]
+  usage           Aggregated token/cost usage (totals/by-agent/by-day)  [--json]
   search          Full-text search session turns  <text> [--limit N]
   fork            Fork a session at a turn ("git for sessions")  <session-id> --at N [--id X]
   analytics       Compute MVP-2 rollups + digest into analytics/

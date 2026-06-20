@@ -1,6 +1,6 @@
 {
   "name": "@unpolarize/code-sessions",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Headless, event-driven cross-agent session capture agent (daemon + CLI)",
   "license": "MIT",
   "type": "module",
@@ -25,7 +25,7 @@
     "build": "tsup src/index.ts src/cli.ts --format esm --clean --out-dir dist"
   },
   "dependencies": {
-    "@unpolarize/code-sessions-schema": "^0.2.0",
+    "@unpolarize/code-sessions-schema": "^0.3.0",
     "zod": "^3.23.8"
   }
 }

@@ -13,6 +13,7 @@ import {
   cmdReindex,
   cmdSearch,
   cmdStatus,
+  cmdUsage,
   startDaemon,
   type CommandResult,
 } from './commands';
@@ -54,7 +55,7 @@ export async function main(argv: string[]): Promise<void> {
       emit(
         await cmdBackfill(cfg, {
           ...(typeof flags.projects === 'string' ? { projectsDir: flags.projects } : {}),
-          ...(typeof flags.agent === 'string' ? { agent: flags.agent as 'claude' | 'grok' | 'codex' | 'all' } : {}),
+          ...(typeof flags.agent === 'string' ? { agent: flags.agent as 'claude' | 'grok' | 'codex' | 'codebuild' | 'all' } : {}),
         }),
       );
       break;
@@ -69,6 +70,9 @@ export async function main(argv: string[]): Promise<void> {
       break;
     case 'index':
       emit(cmdIndex(cfg));
+      break;
+    case 'usage':
+      emit(cmdUsage(cfg, { json: flags.json === true }));
       break;
     case 'query':
       emit(

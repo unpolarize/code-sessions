@@ -91,6 +91,31 @@ describe('SessionIndex', () => {
     }
   });
 
+  it('aggregates usage by agent, day, project, and top-cost', () => {
+    const idx = new SessionIndex(':memory:');
+    try {
+      idx.upsertSession(env('c1', 'claude-code', { totals: { input_tokens: 100, output_tokens: 20, cost_usd: 2 } }), {
+        ...src,
+        projects: ['foo'],
+      });
+      idx.upsertSession(env('g1', 'grok', { totals: { input_tokens: 50, output_tokens: 5, cost_usd: 0.5 } }), {
+        ...src,
+        source_path: '/s/g.json',
+        projects: ['foo', 'bar'],
+      });
+      const u = idx.usageSummary();
+      expect(u.totals.sessions).toBe(2);
+      expect(u.totals.cost_usd).toBe(2.5);
+      expect(u.byAgent['claude-code']!.cost_usd).toBe(2);
+      expect(u.byProject['foo']!.sessions).toBe(2);
+      expect(u.byProject['bar']!.sessions).toBe(1);
+      expect(u.byDay[0]!.day).toBe('2026-06-20');
+      expect(u.topByCost[0]!.session_id).toBe('c1'); // highest cost first
+    } finally {
+      idx.close();
+    }
+  });
+
   it('filters by agent and deletes sessions (cascade turns)', () => {
     const idx = new SessionIndex(':memory:');
     try {

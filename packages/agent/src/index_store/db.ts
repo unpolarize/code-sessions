@@ -44,10 +44,29 @@ export interface SessionIndexRow {
   source_path: string;
 }
 
+export interface UsageBucket {
+  sessions: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+}
+
+export interface UsageSummary {
+  totals: { sessions: number; input_tokens: number; output_tokens: number; cost_usd: number };
+  byAgent: Record<string, UsageBucket>;
+  byDay: Array<{ day: string } & UsageBucket>;
+  byProject: Record<string, UsageBucket>;
+  topByCost: Array<{ session_id: string; agent: string; cost_usd: number; label: string }>;
+}
+
 function toMs(iso: string | undefined): number | null {
   if (!iso) return null;
   const v = Date.parse(iso);
   return Number.isNaN(v) ? null : v;
+}
+
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
 }
 
 export class SessionIndex {
@@ -287,6 +306,59 @@ export class SessionIndex {
       )
       .all(like, like, limit);
     return (rows as any[]).map((r) => this.rowToIndex(r));
+  }
+
+  /** Aggregated usage for a Usage panel: totals, by agent, by day, by project, top cost. */
+  usageSummary(opts: { days?: number; topN?: number } = {}): UsageSummary {
+    const rows = this.db
+      .prepare(
+        'SELECT session_id, agent, started_at, input_tokens, output_tokens, cost_usd, projects_json, topic, title FROM session',
+      )
+      .all() as any[];
+    const totals = { sessions: rows.length, input_tokens: 0, output_tokens: 0, cost_usd: 0 };
+    const byAgent: Record<string, UsageBucket> = {};
+    const byDay: Record<string, UsageBucket> = {};
+    const byProject: Record<string, UsageBucket> = {};
+    const add = (m: Record<string, UsageBucket>, key: string, r: any) => {
+      const b = (m[key] ??= { sessions: 0, input_tokens: 0, output_tokens: 0, cost_usd: 0 });
+      b.sessions++;
+      b.input_tokens += r.input_tokens;
+      b.output_tokens += r.output_tokens;
+      b.cost_usd += r.cost_usd;
+    };
+    for (const r of rows) {
+      totals.input_tokens += r.input_tokens;
+      totals.output_tokens += r.output_tokens;
+      totals.cost_usd += r.cost_usd;
+      add(byAgent, r.agent || 'unknown', r);
+      if (r.started_at) add(byDay, new Date(r.started_at).toISOString().slice(0, 10), r);
+      for (const p of safeJson(r.projects_json)) add(byProject, p, r);
+    }
+    totals.cost_usd = round6(totals.cost_usd);
+    for (const m of [byAgent, byDay, byProject]) for (const b of Object.values(m)) b.cost_usd = round6(b.cost_usd);
+
+    const days = opts.days ?? 30;
+    const recentDays = Object.entries(byDay)
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .slice(0, days)
+      .map(([day, b]) => ({ day, ...b }));
+    const topByCost = rows
+      .map((r) => ({
+        session_id: r.session_id,
+        agent: r.agent,
+        cost_usd: round6(r.cost_usd),
+        label: r.topic || r.title || r.session_id,
+      }))
+      .sort((a, b) => b.cost_usd - a.cost_usd)
+      .slice(0, opts.topN ?? 10);
+
+    return {
+      totals,
+      byAgent,
+      byDay: recentDays,
+      byProject,
+      topByCost,
+    };
   }
 
   stats(): { sessions: number; turns: number; cost_usd: number; byAgent: Record<string, number> } {

@@ -12,6 +12,7 @@ import { installHooks } from './hooks/install';
 import { exportSession, exportStore } from './telemetry/exporter';
 import { discoverGrokSessions, parseGrokSession } from './adapters/grok';
 import { discoverCodexSessions, parseCodexSession } from './adapters/codex';
+import { discoverCodebuildSessions, parseCodebuildSession } from './adapters/codebuild';
 import { writeImportedSession } from './adapters/import';
 import { SessionIndex, type SessionIndexRow } from './index_store/db';
 import { syncIndex } from './index_store/sync';
@@ -82,7 +83,7 @@ export function cmdStatus(cfg: CodeSessionsConfig): CommandResult {
   return { code: 0, output: lines.join('\n') };
 }
 
-export type BackfillAgent = 'claude' | 'grok' | 'codex' | 'all';
+export type BackfillAgent = 'claude' | 'grok' | 'codex' | 'codebuild' | 'all';
 
 export async function cmdBackfill(
   cfg: CodeSessionsConfig,
@@ -132,6 +133,21 @@ export async function cmdBackfill(
     sessions += n;
     turns += t;
     parts.push(`codex: ${n} sessions / ${t} turns`);
+  }
+
+  if (agent === 'codebuild' || agent === 'all') {
+    const found = discoverCodebuildSessions();
+    let n = 0;
+    let t = 0;
+    for (const info of found) {
+      const imported = parseCodebuildSession(info, cfg.host);
+      if (!imported) continue;
+      t += writeImportedSession(cfg, imported).turns;
+      n++;
+    }
+    sessions += n;
+    turns += t;
+    parts.push(`codebuild: ${n} sessions / ${t} turns`);
   }
 
   const git = gitStoreFor(cfg);
@@ -215,6 +231,26 @@ export function cmdFork(
     };
   } catch (e) {
     return { code: 1, output: `fork failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/** Aggregated usage from the CS index (totals/byAgent/byDay/byProject/topByCost). */
+export function cmdUsage(cfg: CodeSessionsConfig, opts: { json?: boolean } = {}): CommandResult {
+  syncIndex(cfg); // ensure the index reflects the current store
+  const index = new SessionIndex(cfg.indexPath);
+  try {
+    const u = index.usageSummary();
+    if (opts.json) return { code: 0, output: JSON.stringify(u) };
+    const lines = [
+      `# usage — ${u.totals.sessions} sessions · ${u.totals.input_tokens.toLocaleString()} in / ${u.totals.output_tokens.toLocaleString()} out · $${u.totals.cost_usd.toFixed(2)}`,
+      'by agent:',
+      ...Object.entries(u.byAgent).map(([a, b]) => `  ${a.padEnd(12)} ${b.sessions} sess  $${b.cost_usd.toFixed(2)}`),
+      'top sessions by cost:',
+      ...u.topByCost.slice(0, 5).map((t) => `  $${t.cost_usd.toFixed(2).padStart(8)}  ${t.agent.padEnd(12)} ${t.label.slice(0, 50)}`),
+    ];
+    return { code: 0, output: lines.join('\n') };
+  } finally {
+    index.close();
   }
 }
 

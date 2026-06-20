@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { sessionDir, turnFile, envelopeFile } from '../store/paths';
 import { makeConfig, withTempDir } from '../test/tmp';
 import { discoverCodexSessions, parseCodexSession } from './codex';
+import { discoverCodebuildSessions, parseCodebuildSession } from './codebuild';
 import { discoverGrokSessions, parseGrokSession } from './grok';
 import { writeImportedSession } from './import';
 
@@ -94,6 +95,41 @@ describe('codex adapter', () => {
       // cumulative token_count attributed to the final assistant turn
       expect(imported.turns[2]!.usage.input_tokens).toBe(100);
       expect(imported.turns[2]!.usage.cache_read_tokens).toBe(10);
+    });
+  });
+});
+
+function seedCodebuild(root: string): void {
+  mkdirSync(root, { recursive: true });
+  writeFileSync(
+    join(root, 'cb-1.jsonl'),
+    [
+      '{"type":"meta","meta":{"id":"cb-1","backend":"claude","title":"Plan MVP","cwd":"/Users/x/projects/foo"}}',
+      '{"type":"update","update":{"kind":"system_init","backendSessionId":"native-1"}}',
+      '{"type":"user","text":"add a feature"}',
+      '{"type":"update","update":{"kind":"agent_message_chunk","content":{"type":"text","text":"sure, "}}}',
+      '{"type":"update","update":{"kind":"agent_message_chunk","content":{"type":"text","text":"editing"}}}',
+      '{"type":"update","update":{"kind":"tool_call","toolCall":{"toolCallId":"t1","title":"Edit","rawInput":{"file_path":"a.ts"}}}}',
+      '{"type":"update","update":{"kind":"result","stopReason":"success","usage":{"inputTokens":1000,"outputTokens":40,"costUsd":0.25}}}',
+    ].join('\n'),
+  );
+}
+
+describe('codebuild adapter', () => {
+  it('folds CB stream into user/assistant turns with usage', () => {
+    withTempDir((root) => {
+      seedCodebuild(root);
+      const found = discoverCodebuildSessions(root);
+      expect(found).toHaveLength(1);
+      const imported = parseCodebuildSession(found[0]!, 'test-host')!;
+      expect(imported.agent).toBe('claude-code'); // backend=claude -> claude-code
+      expect(imported.sessionId).toBe('cb-1');
+      expect(imported.meta.title).toBe('Plan MVP');
+      expect(imported.turns.map((t) => t.role)).toEqual(['user', 'assistant']);
+      expect(imported.turns[1]!.text).toBe('sure, editing'); // chunks concatenated
+      expect(imported.turns[1]!.tool_calls[0]).toMatchObject({ name: 'Edit' });
+      expect(imported.turns[1]!.usage.input_tokens).toBe(1000);
+      expect(imported.turns[1]!.telemetry?.cost_usd).toBe(0.25);
     });
   });
 });
