@@ -13,6 +13,8 @@ import { exportSession, exportStore } from './telemetry/exporter';
 import { discoverGrokSessions, parseGrokSession } from './adapters/grok';
 import { discoverCodexSessions, parseCodexSession } from './adapters/codex';
 import { writeImportedSession } from './adapters/import';
+import { SessionIndex, type SessionIndexRow } from './index_store/db';
+import { syncIndex } from './index_store/sync';
 
 export interface CommandResult {
   code: number;
@@ -188,6 +190,55 @@ export async function cmdExport(
     code: 0,
     output: `Exported ${res.exported}/${res.total} session(s) to ${cfg.telemetry.endpoint} (${res.failed} failed)`,
   };
+}
+
+export function cmdIndex(cfg: CodeSessionsConfig): CommandResult {
+  const stats = syncIndex(cfg);
+  return {
+    code: 0,
+    output: `Indexed ${stats.indexed} new/changed, ${stats.unchanged} unchanged, ${stats.removed} removed → ${cfg.indexPath}`,
+  };
+}
+
+function fmtRow(r: SessionIndexRow): string {
+  const date = r.started_at ? new Date(r.started_at).toISOString().slice(0, 16).replace('T', ' ') : '—'.padEnd(16);
+  const agent = (r.agent || '?').padEnd(11).slice(0, 11);
+  const tok = String(r.input_tokens + r.output_tokens).padStart(8);
+  const cost = `$${r.cost_usd.toFixed(2)}`.padStart(8);
+  const title = (r.topic || r.title || r.session_id).slice(0, 48);
+  return `${date}  ${agent}  ${tok}  ${cost}  ${title}`;
+}
+
+export function cmdQuery(
+  cfg: CodeSessionsConfig,
+  opts: { limit?: number; agent?: string } = {},
+): CommandResult {
+  const index = new SessionIndex(cfg.indexPath);
+  try {
+    const rows = index.listRecent(opts.limit ?? 25, opts.agent);
+    const s = index.stats();
+    const header = `# ${s.sessions} sessions, ${s.turns} turns, $${s.cost_usd.toFixed(2)} — ${Object.entries(s.byAgent).map(([a, n]) => `${a}:${n}`).join(' ')}`;
+    return { code: 0, output: [header, ...rows.map(fmtRow)].join('\n') };
+  } finally {
+    index.close();
+  }
+}
+
+export function cmdSearch(
+  cfg: CodeSessionsConfig,
+  opts: { query: string; limit?: number },
+): CommandResult {
+  if (!opts.query) return { code: 1, output: 'usage: code-sessions search <text> [--limit N]' };
+  const index = new SessionIndex(cfg.indexPath);
+  try {
+    const rows = index.searchTurns(opts.query, opts.limit ?? 25);
+    return {
+      code: 0,
+      output: rows.length ? [`# ${rows.length} match(es) for "${opts.query}"`, ...rows.map(fmtRow)].join('\n') : `No matches for "${opts.query}"`,
+    };
+  } finally {
+    index.close();
+  }
 }
 
 /** Long-running: start the daemon, wire insights + telemetry on session-end. */

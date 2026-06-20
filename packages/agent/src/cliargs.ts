@@ -55,6 +55,9 @@ Commands:
   backfill        Import existing transcripts into the store [--agent claude|grok|codex|all]
   reindex         (Re)derive insights for stored sessions  [--since YYYY-MM]
   export          Export stored sessions as OTLP to a collector  [--since YYYY-MM]
+  index           (Re)build the internal SQLite index from the git store
+  query           List recent sessions from the index  [--limit N] [--agent X]
+  search          Full-text search session turns  <text> [--limit N]
   analytics       Compute MVP-2 rollups + digest into analytics/
   status          Show daemon/store status
   doctor          Environment checks

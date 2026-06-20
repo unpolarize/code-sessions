@@ -18,6 +18,8 @@ export interface CodeSessionsConfig {
   socketPath: string;
   /** daemon bookkeeping state file */
   statePath: string;
+  /** SQLite index (projection of the git store) for fast queries */
+  indexPath: string;
   /** where Claude Code writes its native JSONL transcripts */
   claudeProjectsDir: string;
   batch: {
@@ -63,6 +65,7 @@ export function defaultConfig(home = homedir(), host = hostname()): CodeSessions
     runtimeDir,
     socketPath: join(runtimeDir, 'daemon.sock'),
     statePath: join(runtimeDir, 'state.json'),
+    indexPath: join(runtimeDir, 'index.db'),
     claudeProjectsDir: join(home, '.claude', 'projects'),
     batch: { maxTurns: 8, maxIntervalMs: 5000 },
     hygiene: { maxTurnBytes: 64 * 1024, scrubSecrets: true },
@@ -103,6 +106,9 @@ export function resolveConfig(
   }
   if (merged.statePath === base.statePath && override.statePath === undefined) {
     merged.statePath = join(merged.runtimeDir, 'state.json');
+  }
+  if (merged.indexPath === base.indexPath && override.indexPath === undefined) {
+    merged.indexPath = join(merged.runtimeDir, 'index.db');
   }
   return merged;
 }

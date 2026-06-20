@@ -4,9 +4,12 @@ import {
   cmdBackfill,
   cmdDoctor,
   cmdExport,
+  cmdIndex,
   cmdInit,
   cmdInstallHooks,
+  cmdQuery,
   cmdReindex,
+  cmdSearch,
   cmdStatus,
   startDaemon,
   type CommandResult,
@@ -59,6 +62,22 @@ export async function main(argv: string[]): Promise<void> {
     case 'export':
       emit(await cmdExport(cfg, typeof flags.since === 'string' ? { since: flags.since } : {}));
       break;
+    case 'index':
+      emit(cmdIndex(cfg));
+      break;
+    case 'query':
+      emit(
+        cmdQuery(cfg, {
+          ...(typeof flags.limit === 'string' ? { limit: Number(flags.limit) } : {}),
+          ...(typeof flags.agent === 'string' ? { agent: flags.agent } : {}),
+        }),
+      );
+      break;
+    case 'search': {
+      const q = argv.slice(1).find((a) => !a.startsWith('--')) ?? '';
+      emit(cmdSearch(cfg, { query: q, ...(typeof flags.limit === 'string' ? { limit: Number(flags.limit) } : {}) }));
+      break;
+    }
     case 'hook': {
       // Never fail the agent: swallow everything, always exit 0.
       try {
