@@ -36,6 +36,10 @@ export function overridesFromFlags(flags: Flags): DeepPartial<CodeSessionsConfig
   if (typeof flags.mode === 'string') insights.mode = flags.mode as InsightsMode;
   if (typeof flags.model === 'string') insights.model = flags.model;
   if (Object.keys(insights).length > 0) o.insights = insights;
+  const telemetry: DeepPartial<CodeSessionsConfig['telemetry']> = {};
+  if (typeof flags.endpoint === 'string') telemetry.endpoint = flags.endpoint;
+  if (flags['no-telemetry'] === true || flags['telemetry'] === false) telemetry.enabled = false;
+  if (Object.keys(telemetry).length > 0) o.telemetry = telemetry;
   return o;
 }
 
@@ -48,8 +52,9 @@ Commands:
   start           Run the capture daemon (foreground)
   install-hooks   Install Claude Code hooks that feed the daemon
   hook            (internal) forward a hook payload from stdin to the daemon
-  backfill        Import existing ~/.claude/projects transcripts into the store
+  backfill        Import existing transcripts into the store [--agent claude|grok|codex|all]
   reindex         (Re)derive insights for stored sessions  [--since YYYY-MM]
+  export          Export stored sessions as OTLP to a collector  [--since YYYY-MM]
   analytics       Compute MVP-2 rollups + digest into analytics/
   status          Show daemon/store status
   doctor          Environment checks
@@ -62,6 +67,8 @@ Flags:
   --provider <p>       insights provider: none|fake|claude|grok|ollama
   --mode <m>           insights mode: off|on-stop|per-turn
   --model <m>          provider model
-  --since <YYYY-MM>    reindex: only sessions since month
+  --since <YYYY-MM>    reindex/export: only sessions since month
+  --endpoint <url>     OTLP/HTTP collector base (default http://localhost:4318)
+  --no-telemetry       disable OTLP export
   --settings <path>    install-hooks: target settings.json
 `;

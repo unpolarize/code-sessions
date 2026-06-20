@@ -43,6 +43,14 @@ export interface CodeSessionsConfig {
     /** model/tag passed to the provider (e.g. ollama model name) */
     model?: string;
   };
+  telemetry: {
+    /** export captured sessions as OTLP to a collector */
+    enabled: boolean;
+    /** OTLP/HTTP base URL (paths /v1/traces, /v1/metrics are appended) */
+    endpoint: string;
+    serviceName: string;
+    timeoutMs: number;
+  };
 }
 
 export function defaultConfig(home = homedir(), host = hostname()): CodeSessionsConfig {
@@ -60,6 +68,12 @@ export function defaultConfig(home = homedir(), host = hostname()): CodeSessions
     hygiene: { maxTurnBytes: 64 * 1024, scrubSecrets: true },
     git: { autoCommit: true, autoPush: false },
     insights: { provider: 'none', mode: 'off' },
+    telemetry: {
+      enabled: true,
+      endpoint: 'http://localhost:4318',
+      serviceName: 'code-sessions',
+      timeoutMs: 2000,
+    },
   };
 }
 
@@ -79,6 +93,7 @@ export function resolveConfig(
     hygiene: { ...base.hygiene, ...stripUndefined(override.hygiene) },
     git: { ...base.git, ...stripUndefined(override.git) },
     insights: { ...base.insights, ...stripUndefined(override.insights) },
+    telemetry: { ...base.telemetry, ...stripUndefined(override.telemetry) },
   };
   if (override.storeDir && override.runtimeDir === undefined) {
     merged.runtimeDir = join(merged.storeDir, '.daemon');
@@ -117,6 +132,9 @@ function envOverrides(): DeepPartial<CodeSessionsConfig> {
   if (env.CODE_SESSIONS_REMOTE) o.git = { remote: env.CODE_SESSIONS_REMOTE };
   if (env.CODE_SESSIONS_INSIGHTS_PROVIDER)
     o.insights = { provider: env.CODE_SESSIONS_INSIGHTS_PROVIDER as InsightsProvider };
+  if (env.OTEL_EXPORTER_OTLP_ENDPOINT) o.telemetry = { endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT };
+  if (env.CODE_SESSIONS_TELEMETRY === '0' || env.CODE_SESSIONS_TELEMETRY === 'false')
+    o.telemetry = { ...(o.telemetry ?? {}), enabled: false };
   return o;
 }
 

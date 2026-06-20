@@ -14,5 +14,7 @@ export * from './store/writer';
 export * from './store/git';
 export * from './store/scan';
 export * from './insights/index';
+export * from './telemetry/index';
+export * from './adapters/index';
 export * from './hooks/install';
 export * from './hooks/shim';

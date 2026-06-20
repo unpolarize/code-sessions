@@ -9,6 +9,10 @@ import { StateStore } from './state';
 import { GitStore } from './store/git';
 import { listSessionDirs, readEntries } from './store/scan';
 import { installHooks } from './hooks/install';
+import { exportSession, exportStore } from './telemetry/exporter';
+import { discoverGrokSessions, parseGrokSession } from './adapters/grok';
+import { discoverCodexSessions, parseCodexSession } from './adapters/codex';
+import { writeImportedSession } from './adapters/import';
 
 export interface CommandResult {
   code: number;
@@ -74,25 +78,62 @@ export function cmdStatus(cfg: CodeSessionsConfig): CommandResult {
   return { code: 0, output: lines.join('\n') };
 }
 
+export type BackfillAgent = 'claude' | 'grok' | 'codex' | 'all';
+
 export async function cmdBackfill(
   cfg: CodeSessionsConfig,
-  opts: { projectsDir?: string } = {},
+  opts: { projectsDir?: string; agent?: BackfillAgent } = {},
 ): Promise<CommandResult> {
-  const projectsDir = opts.projectsDir ?? cfg.claudeProjectsDir;
-  const transcripts = listClaudeTranscripts(projectsDir);
-  const engine = new CaptureEngine(cfg, new StateStore(cfg.statePath));
+  const agent = opts.agent ?? 'claude';
+  const parts: string[] = [];
+  let sessions = 0;
   let turns = 0;
-  for (const t of transcripts) {
-    const res = engine.captureSession(t.sessionId, t.path);
-    turns += res.newTurns;
+
+  if (agent === 'claude' || agent === 'all') {
+    const projectsDir = opts.projectsDir ?? cfg.claudeProjectsDir;
+    const transcripts = listClaudeTranscripts(projectsDir);
+    const engine = new CaptureEngine(cfg, new StateStore(cfg.statePath));
+    let t = 0;
+    for (const tr of transcripts) t += engine.captureSession(tr.sessionId, tr.path).newTurns;
+    sessions += transcripts.length;
+    turns += t;
+    parts.push(`claude: ${transcripts.length} sessions / ${t} turns`);
   }
+
+  if (agent === 'grok' || agent === 'all') {
+    const found = discoverGrokSessions();
+    let n = 0;
+    let t = 0;
+    for (const info of found) {
+      const imported = parseGrokSession(info, cfg.host);
+      if (!imported) continue;
+      t += writeImportedSession(cfg, imported).turns;
+      n++;
+    }
+    sessions += n;
+    turns += t;
+    parts.push(`grok: ${n} sessions / ${t} turns`);
+  }
+
+  if (agent === 'codex' || agent === 'all') {
+    const found = discoverCodexSessions();
+    let n = 0;
+    let t = 0;
+    for (const info of found) {
+      const imported = parseCodexSession(info, cfg.host);
+      if (!imported) continue;
+      t += writeImportedSession(cfg, imported).turns;
+      n++;
+    }
+    sessions += n;
+    turns += t;
+    parts.push(`codex: ${n} sessions / ${t} turns`);
+  }
+
   const git = gitStoreFor(cfg);
   git.init();
-  git.commit(`backfill ${transcripts.length} sessions`);
-  return {
-    code: 0,
-    output: `Backfilled ${transcripts.length} session(s), ${turns} turn(s) from ${projectsDir}`,
-  };
+  git.commit(`backfill (${agent}): ${sessions} sessions`);
+  return { code: 0, output: `Backfilled ${sessions} session(s), ${turns} turn(s) — ${parts.join(', ')}` };
 }
 
 export async function cmdReindex(
@@ -135,14 +176,36 @@ export function cmdDoctor(cfg: CodeSessionsConfig): CommandResult {
   return { code, output: lines.join('\n') };
 }
 
-/** Long-running: start the daemon, wire insights on session-end, resolve with a stop() handle. */
+export async function cmdExport(
+  cfg: CodeSessionsConfig,
+  opts: { since?: string } = {},
+): Promise<CommandResult> {
+  if (!cfg.telemetry.enabled) {
+    return { code: 0, output: 'Telemetry export disabled (telemetry.enabled=false)' };
+  }
+  const res = await exportStore(cfg, opts.since ? { sinceMonth: opts.since } : {});
+  return {
+    code: 0,
+    output: `Exported ${res.exported}/${res.total} session(s) to ${cfg.telemetry.endpoint} (${res.failed} failed)`,
+  };
+}
+
+/** Long-running: start the daemon, wire insights + telemetry on session-end. */
 export async function startDaemon(cfg: CodeSessionsConfig): Promise<Daemon> {
   const provider = makeProvider(cfg);
+  const wantInsights = provider && cfg.insights.mode !== 'off';
+  const wantTelemetry = cfg.telemetry.enabled;
+
   const deps =
-    provider && cfg.insights.mode !== 'off'
+    wantInsights || wantTelemetry
       ? {
           onSessionEnd: async (sessionId: string, sessionDir: string) => {
-            await labelSession(sessionDir, { sessionId, host: cfg.host }, provider);
+            if (wantInsights && provider) {
+              await labelSession(sessionDir, { sessionId, host: cfg.host }, provider);
+            }
+            if (wantTelemetry) {
+              await exportSession(cfg, sessionDir);
+            }
           },
         }
       : {};

@@ -27,6 +27,10 @@ export function makeConfig(
   storeDir: string,
   override: DeepPartial<CodeSessionsConfig> = {},
 ): CodeSessionsConfig {
-  const base = resolveConfig(defaultConfig('/home/test', 'test-host'), { storeDir });
+  // telemetry off by default in tests so we never hit a real collector / time out
+  const base = resolveConfig(defaultConfig('/home/test', 'test-host'), {
+    storeDir,
+    telemetry: { enabled: false },
+  });
   return resolveConfig(base, override);
 }

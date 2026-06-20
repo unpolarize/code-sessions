@@ -3,6 +3,7 @@ import { HELP, overridesFromFlags, parseFlags } from './cliargs';
 import {
   cmdBackfill,
   cmdDoctor,
+  cmdExport,
   cmdInit,
   cmdInstallHooks,
   cmdReindex,
@@ -42,13 +43,21 @@ export async function main(argv: string[]): Promise<void> {
       );
       break;
     case 'backfill':
-      emit(await cmdBackfill(cfg, typeof flags.projects === 'string' ? { projectsDir: flags.projects } : {}));
+      emit(
+        await cmdBackfill(cfg, {
+          ...(typeof flags.projects === 'string' ? { projectsDir: flags.projects } : {}),
+          ...(typeof flags.agent === 'string' ? { agent: flags.agent as 'claude' | 'grok' | 'codex' | 'all' } : {}),
+        }),
+      );
       break;
     case 'reindex':
       emit(await cmdReindex(cfg, typeof flags.since === 'string' ? { since: flags.since } : {}));
       break;
     case 'analytics':
       emit(await cmdAnalytics(cfg));
+      break;
+    case 'export':
+      emit(await cmdExport(cfg, typeof flags.since === 'string' ? { since: flags.since } : {}));
       break;
     case 'hook': {
       // Never fail the agent: swallow everything, always exit 0.
