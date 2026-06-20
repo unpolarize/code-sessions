@@ -64,10 +64,14 @@ function seedCodex(root: string): void {
   writeFileSync(
     join(dir, 'rollout-2026-06-20T09-00-00-11111111-2222-3333-4444-555555555555.jsonl'),
     [
-      '{"timestamp":"2026-06-20T09:00:00Z","type":"session_meta","payload":{"type":"session_meta","id":"11111111-2222-3333-4444-555555555555","model":"gpt-5-codex","cwd":"/Users/x/proj"}}',
-      '{"timestamp":"2026-06-20T09:00:01Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"print 42"}]}}',
-      '{"timestamp":"2026-06-20T09:00:02Z","type":"response_item","payload":{"type":"function_call","name":"shell","arguments":"{\\"command\\":\\"echo 42\\"}"}}',
-      '{"timestamp":"2026-06-20T09:00:03Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"42"}]}}',
+      '{"timestamp":"2026-06-20T09:00:00Z","type":"session_meta","payload":{"id":"11111111-2222-3333-4444-555555555555","timestamp":"2026-06-20T09:00:00Z","model":"gpt-5-codex","cwd":"/Users/x/proj"}}',
+      '{"timestamp":"2026-06-20T09:00:01Z","type":"event_msg","payload":{"type":"task_started","turn_id":"t1"}}',
+      '{"timestamp":"2026-06-20T09:00:02Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"<permission scaffolding>"}]}}',
+      '{"timestamp":"2026-06-20T09:00:03Z","type":"event_msg","payload":{"type":"user_message","message":"print 42","images":[]}}',
+      '{"timestamp":"2026-06-20T09:00:04Z","type":"response_item","payload":{"type":"function_call","name":"shell","arguments":"{\\"command\\":\\"echo 42\\"}"}}',
+      '{"timestamp":"2026-06-20T09:00:05Z","type":"event_msg","payload":{"type":"agent_message","message":"42","phase":"final_answer"}}',
+      '{"timestamp":"2026-06-20T09:00:06Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":10,"output_tokens":5}}}}',
+      '{"timestamp":"2026-06-20T09:00:07Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"t1"}}',
     ].join('\n'),
   );
 }
@@ -84,8 +88,12 @@ describe('codex adapter', () => {
       expect(imported.meta.model).toBe('gpt-5-codex');
       expect(imported.meta.project_path).toBe('/Users/x/proj');
       expect(imported.turns.map((t) => t.role)).toEqual(['user', 'assistant', 'assistant']);
+      expect(imported.turns[0]!.text).toBe('print 42'); // from event_msg/user_message
       expect(imported.turns[1]!.tool_calls[0]).toMatchObject({ name: 'shell' });
-      expect(imported.turns[2]!.text).toBe('42');
+      expect(imported.turns[2]!.text).toBe('42'); // from event_msg/agent_message
+      // cumulative token_count attributed to the final assistant turn
+      expect(imported.turns[2]!.usage.input_tokens).toBe(100);
+      expect(imported.turns[2]!.usage.cache_read_tokens).toBe(10);
     });
   });
 });
