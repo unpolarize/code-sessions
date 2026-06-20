@@ -21,7 +21,7 @@ const { DatabaseSync } = nodeRequire('node:sqlite') as {
  * can share the model.
  */
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export interface SessionIndexRow {
   session_id: string;
@@ -39,6 +39,8 @@ export interface SessionIndexRow {
   title: string | null;
   labels: string[];
   topic: string | null;
+  intent: string | null;
+  projects: string[];
   source_path: string;
 }
 
@@ -60,7 +62,8 @@ export class SessionIndex {
 
   private migrate(): void {
     const row = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
-    if ((row?.user_version ?? 0) < 1) {
+    const cur = row?.user_version ?? 0;
+    if (cur < 1) {
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS session (
           session_id TEXT PRIMARY KEY,
@@ -78,6 +81,8 @@ export class SessionIndex {
           title TEXT,
           labels_json TEXT NOT NULL DEFAULT '[]',
           topic TEXT,
+          intent TEXT,
+          projects_json TEXT NOT NULL DEFAULT '[]',
           source_path TEXT NOT NULL,
           mtime_ms INTEGER NOT NULL DEFAULT 0,
           size_bytes INTEGER NOT NULL DEFAULT 0,
@@ -101,13 +106,24 @@ export class SessionIndex {
         CREATE TABLE IF NOT EXISTS insight (
           session_id TEXT PRIMARY KEY REFERENCES session(session_id) ON DELETE CASCADE,
           topic TEXT,
+          intent TEXT,
           tags_json TEXT NOT NULL DEFAULT '[]',
+          projects_json TEXT NOT NULL DEFAULT '[]',
           signals_json TEXT NOT NULL DEFAULT '[]',
           provider TEXT,
           generated_at TEXT
         );
       `);
       this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+    } else if (cur < 2) {
+      // additive v1 -> v2: intent + projects columns
+      this.db.exec(`
+        ALTER TABLE session ADD COLUMN intent TEXT;
+        ALTER TABLE session ADD COLUMN projects_json TEXT NOT NULL DEFAULT '[]';
+        ALTER TABLE insight ADD COLUMN intent TEXT;
+        ALTER TABLE insight ADD COLUMN projects_json TEXT NOT NULL DEFAULT '[]';
+        PRAGMA user_version = ${SCHEMA_VERSION};
+      `);
     }
   }
 
@@ -125,21 +141,30 @@ export class SessionIndex {
 
   upsertSession(
     env: SessionEnvelope,
-    src: { source_path: string; mtime_ms: number; size_bytes: number; indexed_at: number; topic?: string },
+    src: {
+      source_path: string;
+      mtime_ms: number;
+      size_bytes: number;
+      indexed_at: number;
+      topic?: string;
+      intent?: string;
+      projects?: string[];
+    },
   ): void {
     this.db
       .prepare(
         `INSERT INTO session (session_id, host, agent, project_path, model, started_at, ended_at,
            turn_count, tool_call_count, input_tokens, output_tokens, cost_usd, title, labels_json,
-           topic, source_path, mtime_ms, size_bytes, indexed_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           topic, intent, projects_json, source_path, mtime_ms, size_bytes, indexed_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(session_id) DO UPDATE SET
            host=excluded.host, agent=excluded.agent, project_path=excluded.project_path,
            model=excluded.model, started_at=excluded.started_at, ended_at=excluded.ended_at,
            turn_count=excluded.turn_count, tool_call_count=excluded.tool_call_count,
            input_tokens=excluded.input_tokens, output_tokens=excluded.output_tokens,
            cost_usd=excluded.cost_usd, title=excluded.title, labels_json=excluded.labels_json,
-           topic=excluded.topic, source_path=excluded.source_path, mtime_ms=excluded.mtime_ms,
+           topic=excluded.topic, intent=excluded.intent, projects_json=excluded.projects_json,
+           source_path=excluded.source_path, mtime_ms=excluded.mtime_ms,
            size_bytes=excluded.size_bytes, indexed_at=excluded.indexed_at`,
       )
       .run(
@@ -158,6 +183,8 @@ export class SessionIndex {
         env.title ?? null,
         JSON.stringify(env.labels ?? []),
         src.topic ?? null,
+        src.intent ?? null,
+        JSON.stringify(src.projects ?? []),
         src.source_path,
         src.mtime_ms,
         src.size_bytes,
@@ -190,13 +217,15 @@ export class SessionIndex {
   upsertInsight(ins: Insights): void {
     this.db
       .prepare(
-        `INSERT OR REPLACE INTO insight (session_id, topic, tags_json, signals_json, provider, generated_at)
-         VALUES (?,?,?,?,?,?)`,
+        `INSERT OR REPLACE INTO insight (session_id, topic, intent, tags_json, projects_json, signals_json, provider, generated_at)
+         VALUES (?,?,?,?,?,?,?,?)`,
       )
       .run(
         ins.session_id,
         ins.topic ?? null,
+        ins.intent ?? null,
         JSON.stringify(ins.tags ?? []),
+        JSON.stringify(ins.projects ?? []),
         JSON.stringify(ins.signals ?? []),
         ins.provider,
         ins.generated_at,
@@ -226,6 +255,8 @@ export class SessionIndex {
       title: r.title ?? null,
       labels: safeJson(r.labels_json),
       topic: r.topic ?? null,
+      intent: r.intent ?? null,
+      projects: safeJson(r.projects_json),
       source_path: r.source_path,
     };
   }

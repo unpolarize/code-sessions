@@ -4,9 +4,11 @@ import {
   cmdBackfill,
   cmdDoctor,
   cmdExport,
+  cmdFork,
   cmdIndex,
   cmdInit,
   cmdInstallHooks,
+  cmdInstallSkills,
   cmdQuery,
   cmdReindex,
   cmdSearch,
@@ -45,6 +47,9 @@ export async function main(argv: string[]): Promise<void> {
         }),
       );
       break;
+    case 'install-skills':
+      emit(cmdInstallSkills(typeof flags.agent === 'string' ? { agent: flags.agent as 'claude' | 'codex' | 'grok' | 'all' } : {}));
+      break;
     case 'backfill':
       emit(
         await cmdBackfill(cfg, {
@@ -76,6 +81,17 @@ export async function main(argv: string[]): Promise<void> {
     case 'search': {
       const q = argv.slice(1).find((a) => !a.startsWith('--')) ?? '';
       emit(cmdSearch(cfg, { query: q, ...(typeof flags.limit === 'string' ? { limit: Number(flags.limit) } : {}) }));
+      break;
+    }
+    case 'fork': {
+      const sid = argv.slice(1).find((a) => !a.startsWith('--')) ?? '';
+      emit(
+        cmdFork(cfg, {
+          sessionId: sid,
+          atTurn: typeof flags.at === 'string' ? Number(flags.at) : NaN,
+          ...(typeof flags.id === 'string' ? { newId: flags.id } : {}),
+        }),
+      );
       break;
     }
     case 'hook': {

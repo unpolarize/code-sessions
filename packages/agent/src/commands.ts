@@ -15,6 +15,8 @@ import { discoverCodexSessions, parseCodexSession } from './adapters/codex';
 import { writeImportedSession } from './adapters/import';
 import { SessionIndex, type SessionIndexRow } from './index_store/db';
 import { syncIndex } from './index_store/sync';
+import { installSkills, type SkillAgent } from './skills/install';
+import { forkSession } from './fork';
 
 export interface CommandResult {
   code: number;
@@ -192,6 +194,35 @@ export async function cmdExport(
   };
 }
 
+export function cmdFork(
+  cfg: CodeSessionsConfig,
+  opts: { sessionId: string; atTurn: number; newId?: string },
+): CommandResult {
+  if (!opts.sessionId || Number.isNaN(opts.atTurn)) {
+    return { code: 1, output: 'usage: code-sessions fork <session-id> --at <turn> [--id <new-id>]' };
+  }
+  try {
+    const res = forkSession(cfg, {
+      sessionId: opts.sessionId,
+      atTurn: opts.atTurn,
+      ...(opts.newId ? { newSessionId: opts.newId } : {}),
+    });
+    const git = gitStoreFor(cfg);
+    if (git.isRepo()) git.commit(`fork ${opts.sessionId}@${opts.atTurn} -> ${res.newSessionId}`);
+    return {
+      code: 0,
+      output: `Forked ${opts.sessionId} at turn ${opts.atTurn} → ${res.newSessionId} (${res.turns} turns) at ${res.sessionDir}`,
+    };
+  } catch (e) {
+    return { code: 1, output: `fork failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+export function cmdInstallSkills(opts: { agent?: SkillAgent } = {}): CommandResult {
+  const res = installSkills(opts.agent ? { agent: opts.agent } : {});
+  return { code: 0, output: `Installed cs-label-session skill:\n  ${res.installed.join('\n  ')}` };
+}
+
 export function cmdIndex(cfg: CodeSessionsConfig): CommandResult {
   const stats = syncIndex(cfg);
   return {
@@ -205,8 +236,9 @@ function fmtRow(r: SessionIndexRow): string {
   const agent = (r.agent || '?').padEnd(11).slice(0, 11);
   const tok = String(r.input_tokens + r.output_tokens).padStart(8);
   const cost = `$${r.cost_usd.toFixed(2)}`.padStart(8);
-  const title = (r.topic || r.title || r.session_id).slice(0, 48);
-  return `${date}  ${agent}  ${tok}  ${cost}  ${title}`;
+  const intent = (r.intent || '·').padEnd(8).slice(0, 8);
+  const title = (r.topic || r.title || r.session_id).slice(0, 44);
+  return `${date}  ${agent}  ${intent}  ${tok}  ${cost}  ${title}`;
 }
 
 export function cmdQuery(

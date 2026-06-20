@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Turn } from '@unpolarize/code-sessions-schema';
-import { deriveSignals, deriveTags, guessTopic } from './heuristics';
+import { deriveIntent, deriveProjects, deriveSignals, deriveTags, guessTopic } from './heuristics';
 
 function turn(i: number, over: Partial<Turn> = {}): Turn {
   return {
@@ -67,5 +67,27 @@ describe('guessTopic / deriveTags', () => {
       turn(1, { tool_calls: [{ name: 'Read' }] }),
     ]);
     expect(tags.sort()).toEqual(['Edit', 'Read']);
+  });
+});
+
+describe('deriveIntent', () => {
+  it('classifies intent from the first user prompt', () => {
+    expect(deriveIntent([turn(0, { role: 'user', text: 'fix the parser bug' })])).toBe('bugfix');
+    expect(deriveIntent([turn(0, { role: 'user', text: 'add a dark mode feature' })])).toBe('feature');
+    expect(deriveIntent([turn(0, { role: 'user', text: 'refactor the auth module' })])).toBe('refactor');
+    expect(deriveIntent([turn(0, { role: 'user', text: 'research the best vector db' })])).toBe('research');
+    expect(deriveIntent([turn(0, { role: 'user', text: 'xyzzy' })])).toBe('other');
+    expect(deriveIntent([])).toBeUndefined();
+  });
+});
+
+describe('deriveProjects', () => {
+  it('derives project ids from edited file paths', () => {
+    const projects = deriveProjects([
+      turn(0, { tool_calls: [{ name: 'Edit', input: { file_path: '/Users/x/projects/foo/a.ts' } }] }),
+      turn(1, { tool_calls: [{ name: 'Write', input: { file_path: '/Users/x/projects/ai/bar/b.ts' } }] }),
+      turn(2, { tool_calls: [{ name: 'Read', input: { path: '/Users/x/docs/notes.md' } }] }),
+    ]);
+    expect(projects).toEqual(['ai/bar', 'docs', 'foo']);
   });
 });

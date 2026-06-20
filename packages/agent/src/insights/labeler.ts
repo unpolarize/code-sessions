@@ -11,7 +11,7 @@ import type { CodeSessionsConfig } from '../config';
 import { envelopeFile, insightsFile } from '../store/paths';
 import { listSessionDirs } from '../store/scan';
 import { readTurns } from '../store/writer';
-import { deriveSignals, deriveTags, guessTopic } from './heuristics';
+import { deriveIntent, deriveProjects, deriveSignals, deriveTags, guessTopic } from './heuristics';
 import { FakeProvider, type LabelResult, type Provider } from './provider';
 import { LlmProvider, claudeRunner, grokRunner, ollamaRunner } from './llm';
 
@@ -73,7 +73,7 @@ export async function labelSession(
   if (turns.length === 0) return undefined;
 
   const heuristicSignals = deriveSignals(turns);
-  let provided: LabelResult = { tags: [], signals: [] };
+  let provided: LabelResult = { tags: [], projects: [], signals: [] };
   try {
     provided = await provider.label({ sessionId: identity.sessionId, host: identity.host, turns });
   } catch {
@@ -81,7 +81,9 @@ export async function labelSession(
   }
 
   const topic = provided.topic ?? guessTopic(turns);
+  const intent = provided.intent ?? deriveIntent(turns);
   const tags = [...new Set([...provided.tags, ...deriveTags(turns)])].slice(0, 16);
+  const projects = [...new Set([...provided.projects, ...deriveProjects(turns)])].slice(0, 16);
   const signals = dedupeSignals([...heuristicSignals, ...provided.signals]);
 
   const insights: Insights = {
@@ -91,17 +93,22 @@ export async function labelSession(
     generated_at: opts.now ?? new Date().toISOString(),
     provider: provider.name,
     tags,
+    projects,
     signals,
   };
   if (topic) insights.topic = topic;
+  if (intent) insights.intent = intent;
   if (provided.summary) insights.summary = provided.summary;
 
   writeJsonAtomic(insightsFile(sessionDir), insights);
-  updateEnvelopeLabels(sessionDir, topic, tags);
+  updateEnvelopeLabels(sessionDir, { topic, intent, projects });
   return insights;
 }
 
-function updateEnvelopeLabels(sessionDir: string, topic: string | undefined, tags: string[]): void {
+function updateEnvelopeLabels(
+  sessionDir: string,
+  l: { topic?: string; intent?: string; projects: string[] },
+): void {
   const path = envelopeFile(sessionDir);
   if (!existsSync(path)) return;
   let env: SessionEnvelope;
@@ -110,7 +117,13 @@ function updateEnvelopeLabels(sessionDir: string, topic: string | undefined, tag
   } catch {
     return;
   }
-  env.labels = [...new Set([...(topic ? [topic] : []), ...tags])].slice(0, 16);
+  env.labels = [
+    ...new Set([
+      ...(l.intent ? [`intent:${l.intent}`] : []),
+      ...(l.topic ? [l.topic] : []),
+      ...l.projects.map((p) => `project:${p}`),
+    ]),
+  ].slice(0, 16);
   writeJsonAtomic(path, env);
 }
 

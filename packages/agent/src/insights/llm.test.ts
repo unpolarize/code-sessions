@@ -54,7 +54,7 @@ describe('parseLabelJson', () => {
   });
 
   it('returns empty on non-JSON', () => {
-    expect(parseLabelJson('no json here')).toEqual({ tags: [], signals: [] });
+    expect(parseLabelJson('no json here')).toEqual({ tags: [], projects: [], signals: [] });
   });
 });
 

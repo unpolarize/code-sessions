@@ -1,5 +1,5 @@
-import type { Signal, Turn } from '@unpolarize/code-sessions-schema';
-import { deriveTags, guessTopic } from './heuristics';
+import type { Intent, Signal, Turn } from '@unpolarize/code-sessions-schema';
+import { deriveIntent, deriveProjects, deriveTags, guessTopic } from './heuristics';
 
 export interface LabelRequest {
   sessionId: string;
@@ -9,7 +9,9 @@ export interface LabelRequest {
 
 export interface LabelResult {
   topic?: string;
+  intent?: Intent;
   tags: string[];
+  projects: string[];
   signals: Signal[];
   summary?: string;
 }
@@ -26,10 +28,13 @@ export class FakeProvider implements Provider {
   async label(req: LabelRequest): Promise<LabelResult> {
     const result: LabelResult = {
       tags: deriveTags(req.turns),
+      projects: deriveProjects(req.turns),
       signals: [],
     };
     const topic = guessTopic(req.turns);
     if (topic) result.topic = topic;
+    const intent = deriveIntent(req.turns);
+    if (intent) result.intent = intent;
     const assistantText = req.turns.find((t) => t.role === 'assistant')?.text;
     if (assistantText) result.summary = assistantText.slice(0, 160);
     return result;

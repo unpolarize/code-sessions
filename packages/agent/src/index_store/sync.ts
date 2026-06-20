@@ -51,6 +51,8 @@ export function syncIndex(
       const env = parsed.data;
 
       let topic: string | undefined;
+      let intent: string | undefined;
+      let projects: string[] = [];
       const insPath = insightsFile(ref.dir);
       let insights = undefined;
       if (existsSync(insPath)) {
@@ -58,6 +60,8 @@ export function syncIndex(
         if (pi.success) {
           insights = pi.data;
           topic = pi.data.topic;
+          intent = pi.data.intent;
+          projects = pi.data.projects ?? [];
         }
       }
 
@@ -66,7 +70,9 @@ export function syncIndex(
         mtime_ms,
         size_bytes,
         indexed_at: now,
+        projects,
         ...(topic ? { topic } : {}),
+        ...(intent ? { intent } : {}),
       });
       index.replaceTurns(env.session_id, readTurns(ref.dir));
       if (insights) index.upsertInsight(insights);

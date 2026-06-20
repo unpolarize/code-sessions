@@ -90,9 +90,27 @@ export const SessionSchema = z
     totals: TotalsSchema.default({}),
     title: z.string().optional(),
     labels: z.array(z.string()).default([]),
+    /** lineage when this session was forked from another at a turn ("git for sessions") */
+    forked_from: z
+      .object({ session_id: z.string(), turn_index: z.number().int().nonnegative() })
+      .strict()
+      .optional(),
     native_ref: NativeRefSchema,
   })
   .strict();
+
+/** What the session was about — the user's intent behind the prompt(s). */
+export const INTENTS = [
+  'feature',
+  'bugfix',
+  'refactor',
+  'research',
+  'docs',
+  'ops',
+  'review',
+  'chore',
+  'other',
+] as const;
 
 export const SIGNAL_KINDS = [
   'stuck-loop',
@@ -123,7 +141,11 @@ export const InsightsSchema = z
     generated_at: z.string(),
     provider: z.string(),
     topic: z.string().optional(),
+    /** what the session was about (feature/bugfix/research/…) */
+    intent: z.enum(INTENTS).optional(),
     tags: z.array(z.string()).default([]),
+    /** project ids the session touched (derived from edited file paths) */
+    projects: z.array(z.string()).default([]),
     signals: z.array(SignalSchema).default([]),
     summary: z.string().optional(),
   })
@@ -140,6 +162,7 @@ export type Insights = z.infer<typeof InsightsSchema>;
 export type AgentKind = (typeof AGENTS)[number];
 export type Role = (typeof ROLES)[number];
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
+export type Intent = (typeof INTENTS)[number];
 
 export const SCHEMA_VERSIONS = {
   turn: 'session-store/turn@1',

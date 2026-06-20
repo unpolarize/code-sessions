@@ -1,4 +1,4 @@
-import type { Signal, Turn } from '@unpolarize/code-sessions-schema';
+import type { Intent, Signal, Turn } from '@unpolarize/code-sessions-schema';
 
 /**
  * Deterministic, LLM-free signal derivation. Runs regardless of provider so the
@@ -103,4 +103,51 @@ export function deriveTags(turns: Turn[]): string[] {
   const tags = new Set<string>();
   for (const t of turns) for (const c of t.tool_calls) tags.add(c.name);
   return [...tags].slice(0, 12);
+}
+
+/** Map an edited file path to a coarse project id (…/projects/<id>, …/docs → docs). */
+export function projectIdFromPath(p: string): string | null {
+  const segs = p.split('/').filter(Boolean);
+  const i = segs.indexOf('projects');
+  if (i >= 0 && segs[i + 1] === 'ai' && segs[i + 2]) return `ai/${segs[i + 2]}`;
+  if (i >= 0 && segs[i + 1]) return segs[i + 1]!;
+  if (segs.includes('docs')) return 'docs';
+  return null;
+}
+
+/** Projects the session touched, from Edit/Write/Read tool file paths. */
+export function deriveProjects(turns: Turn[]): string[] {
+  const set = new Set<string>();
+  for (const t of turns) {
+    for (const c of t.tool_calls) {
+      const fp = (c.input as { file_path?: string; path?: string } | undefined)?.file_path
+        ?? (c.input as { path?: string } | undefined)?.path;
+      if (typeof fp === 'string') {
+        const id = projectIdFromPath(fp);
+        if (id) set.add(id);
+      }
+    }
+  }
+  return [...set].sort().slice(0, 12);
+}
+
+const INTENT_PATTERNS: [Intent, RegExp][] = [
+  ['bugfix', /\b(fix|bug|broken|error|crash|regression|failing|stack ?trace)\b/i],
+  ['feature', /\b(add|implement|build|create|feature|support|introduce|new )\b/i],
+  ['refactor', /\b(refactor|clean ?up|simplify|rename|restructure|extract|dedupe)\b/i],
+  ['research', /\b(research|investigate|explore|compare|evaluate|find out|how (do|does|to)|why)\b/i],
+  ['docs', /\b(document|docs|readme|write[ -]?up|notes|comment)\b/i],
+  ['review', /\b(review|audit|critique|check|inspect)\b/i],
+  ['ops', /\b(deploy|release|publish|install|configure|ci\/?cd|pipeline|infra)\b/i],
+];
+
+/** Classify the session's intent from the first substantive user prompt. */
+export function deriveIntent(turns: Turn[]): Intent | undefined {
+  const firstUser = turns.find((t) => t.role === 'user' && t.text.trim().length > 0);
+  if (!firstUser) return undefined;
+  const text = firstUser.text;
+  for (const [intent, re] of INTENT_PATTERNS) {
+    if (re.test(text)) return intent;
+  }
+  return 'other';
 }

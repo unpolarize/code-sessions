@@ -52,8 +52,11 @@ describe('labelSession', () => {
       expect(ins!.generated_at).toBe('2026-06-20T09:00:00Z');
       expect(existsSync(insightsFile(dir))).toBe(true);
 
+      expect(ins!.intent).toBe('bugfix');
+      expect(ins!.tags).toContain('Edit'); // tags live on the insights record
       const env = JSON.parse(readFileSync(envelopeFile(dir), 'utf8'));
-      expect(env.labels).toContain('Edit');
+      expect(env.labels).toContain('intent:bugfix'); // envelope labels = intent/topic/projects
+      expect(env.labels.some((l: string) => l.startsWith('intent:'))).toBe(true);
     });
   });
 

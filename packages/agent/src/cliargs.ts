@@ -51,6 +51,7 @@ Commands:
   init            Initialize the git-backed store (~/.sessions)
   start           Run the capture daemon (foreground)
   install-hooks   Install Claude Code hooks that feed the daemon
+  install-skills  Install the cs-label-session skill into agents [--agent claude|codex|grok|all]
   hook            (internal) forward a hook payload from stdin to the daemon
   backfill        Import existing transcripts into the store [--agent claude|grok|codex|all]
   reindex         (Re)derive insights for stored sessions  [--since YYYY-MM]
@@ -58,6 +59,7 @@ Commands:
   index           (Re)build the internal SQLite index from the git store
   query           List recent sessions from the index  [--limit N] [--agent X]
   search          Full-text search session turns  <text> [--limit N]
+  fork            Fork a session at a turn ("git for sessions")  <session-id> --at N [--id X]
   analytics       Compute MVP-2 rollups + digest into analytics/
   status          Show daemon/store status
   doctor          Environment checks

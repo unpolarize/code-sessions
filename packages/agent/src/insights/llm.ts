@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { SIGNAL_KINDS, type Signal } from '@unpolarize/code-sessions-schema';
+import { INTENTS, SIGNAL_KINDS, type Signal } from '@unpolarize/code-sessions-schema';
 import type { LabelRequest, LabelResult, Provider } from './provider';
 
 /** Runs a prompt against some agent CLI/API and returns its raw text output. */
@@ -27,10 +27,12 @@ export function buildPrompt(req: LabelRequest): string {
 
   return [
     'You label a coding-agent session. Respond with ONLY a JSON object, no prose:',
-    '{"topic": string, "tags": string[], "summary": string, "signals": [{"kind": one of ' +
+    '{"topic": string, "intent": one of ' +
+      INTENTS.join('|') +
+      ', "tags": string[], "projects": string[], "summary": string, "signals": [{"kind": one of ' +
       SIGNAL_KINDS.join('|') +
       ', "severity": "info"|"warn"|"critical", "note": string}]}',
-    'topic: 3-6 words. tags: tools/themes. summary: <=1 sentence. signals: only notable ones.',
+    'topic: 3-6 words. intent: what the user wanted. tags: tools/themes. projects: repo/dir names touched. summary: <=1 sentence. signals: only notable ones.',
     '',
     'Transcript:',
     transcript,
@@ -42,19 +44,25 @@ const KIND_SET = new Set<string>(SIGNAL_KINDS);
 export function parseLabelJson(out: string): LabelResult {
   const start = out.indexOf('{');
   const end = out.lastIndexOf('}');
-  if (start < 0 || end <= start) return { tags: [], signals: [] };
+  if (start < 0 || end <= start) return { tags: [], projects: [], signals: [] };
   let obj: Record<string, unknown>;
   try {
     obj = JSON.parse(out.slice(start, end + 1)) as Record<string, unknown>;
   } catch {
-    return { tags: [], signals: [] };
+    return { tags: [], projects: [], signals: [] };
   }
   const result: LabelResult = {
     tags: Array.isArray(obj.tags) ? obj.tags.filter((t): t is string => typeof t === 'string') : [],
+    projects: Array.isArray(obj.projects)
+      ? obj.projects.filter((t): t is string => typeof t === 'string')
+      : [],
     signals: coerceSignals(obj.signals),
   };
   if (typeof obj.topic === 'string') result.topic = obj.topic;
   if (typeof obj.summary === 'string') result.summary = obj.summary;
+  if (typeof obj.intent === 'string' && (INTENTS as readonly string[]).includes(obj.intent)) {
+    result.intent = obj.intent as LabelResult['intent'];
+  }
   return result;
 }
 

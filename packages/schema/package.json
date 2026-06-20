@@ -1,6 +1,6 @@
 {
   "name": "@unpolarize/code-sessions-schema",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Canonical wire schema for cross-agent session records (turns, envelopes, insights)",
   "license": "MIT",
   "type": "module",
@@ -13,9 +13,18 @@
       "default": "./src/index.ts"
     }
   },
-  "files": ["dist", "src"],
-  "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "git+https://github.com/unpolarize/code-sessions.git", "directory": "packages/schema" },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unpolarize/code-sessions.git",
+    "directory": "packages/schema"
+  },
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean --out-dir dist"
   },

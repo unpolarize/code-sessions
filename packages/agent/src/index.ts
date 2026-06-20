@@ -17,5 +17,7 @@ export * from './insights/index';
 export * from './telemetry/index';
 export * from './adapters/index';
 export * from './index_store/index';
+export * from './skills/index';
+export * from './fork';
 export * from './hooks/install';
 export * from './hooks/shim';
