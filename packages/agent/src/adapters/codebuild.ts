@@ -150,7 +150,9 @@ export function parseCodebuildSession(info: CodebuildSessionInfo, host: string):
   };
   if (cwd) meta.project_path = cwd;
   if (title) meta.title = title;
-  return { host, sessionId, agent, turns, meta };
+  // Stamp CB provenance so the store/CSV can tell a Code Build session apart
+  // from a native claude/grok session even though its backend agent matches.
+  return { host, sessionId, agent, turns, meta, format: 'codebuild-jsonl' };
 }
 
 function statMtime(p: string): number {

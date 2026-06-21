@@ -130,6 +130,7 @@ describe('codebuild adapter', () => {
       expect(imported.turns[1]!.tool_calls[0]).toMatchObject({ name: 'Edit' });
       expect(imported.turns[1]!.usage.input_tokens).toBe(1000);
       expect(imported.turns[1]!.telemetry?.cost_usd).toBe(0.25);
+      expect(imported.format).toBe('codebuild-jsonl'); // provenance preserved despite backend=claude
     });
   });
 });

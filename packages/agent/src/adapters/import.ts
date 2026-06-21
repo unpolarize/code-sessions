@@ -25,6 +25,9 @@ export interface ImportedSession {
   agent: AgentKind;
   turns: Turn[];
   meta: ClaudeSessionMeta;
+  /** Override native_ref.format to preserve provenance when the agent kind
+   * doesn't capture it (e.g. a Code Build session whose backend is claude). */
+  format?: string;
 }
 
 export interface ImportResult {
@@ -62,7 +65,7 @@ export function writeImportedSession(cfg: CodeSessionsConfig, s: ImportedSession
     agent: s.agent,
     native_uuid: s.sessionId,
   });
-  env.native_ref.format = NATIVE_FORMAT[s.agent] ?? 'unknown';
+  env.native_ref.format = s.format ?? NATIVE_FORMAT[s.agent] ?? 'unknown';
   // preserve labels if a prior envelope exists
   const envPath = envelopeFile(dir);
   if (existsSync(envPath)) {
