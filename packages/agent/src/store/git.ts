@@ -58,17 +58,35 @@ export class GitStore {
     return existsSync(join(this.dir, '.git'));
   }
 
-  /** Initialize the store repo (idempotent): git init, scaffolding files, remote. */
+  /** Initialize the store repo (idempotent): git init, connect remote (adopting
+   * its existing history on a fresh clone so a second machine continues the same
+   * store instead of forking), then write scaffolding files if still absent. */
   init(): void {
     if (!this.isRepo()) {
       const r = spawnSync('git', ['init', '-b', 'main', this.dir], { encoding: 'utf8' });
       if (r.status !== 0) throw new Error(`git init failed: ${r.stderr}`);
     }
+    // Connect + adopt remote BEFORE writing scaffolding, so an adopted checkout
+    // doesn't collide with untracked .gitignore/.gitattributes we'd write.
+    if (this.opts.remote) {
+      this.ensureRemote(this.opts.remote);
+      this.adoptRemoteIfEmpty();
+    }
     const giPath = join(this.dir, '.gitignore');
     if (!existsSync(giPath)) writeFileSync(giPath, GITIGNORE);
     const gaPath = join(this.dir, '.gitattributes');
     if (!existsSync(gaPath)) writeFileSync(gaPath, GITATTRIBUTES);
-    if (this.opts.remote) this.ensureRemote(this.opts.remote);
+  }
+
+  /** When this clone has no commits yet, pull the remote's existing store so we
+   * continue its history (multi-machine) rather than starting a divergent one.
+   * No-op for an empty/unreachable remote. */
+  private adoptRemoteIfEmpty(): void {
+    if (this.run(['rev-parse', '--verify', 'HEAD']).ok) return; // already has local history
+    if (!this.run(['fetch', 'origin']).ok) return; // empty or unreachable remote
+    if (!this.run(['rev-parse', '--verify', 'origin/main']).ok) return; // remote has no main
+    this.run(['reset', '--hard', 'origin/main']);
+    this.run(['branch', '--set-upstream-to=origin/main', 'main']);
   }
 
   ensureRemote(remote: string): void {

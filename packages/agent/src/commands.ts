@@ -59,7 +59,17 @@ export function cmdInit(cfg: CodeSessionsConfig): CommandResult {
   if (!existsSync(configPath)) {
     writeFileSync(
       configPath,
-      `${JSON.stringify({ insights: cfg.insights, batch: cfg.batch, hygiene: cfg.hygiene }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          insights: cfg.insights,
+          batch: cfg.batch,
+          hygiene: cfg.hygiene,
+          // persist the remote so the daemon/CLI keep pushing here without flags
+          git: { ...(cfg.git.remote ? { remote: cfg.git.remote } : {}), autoPush: cfg.git.autoPush },
+        },
+        null,
+        2,
+      )}\n`,
     );
   }
   git.commit('init store');
