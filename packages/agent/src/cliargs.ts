@@ -59,6 +59,7 @@ Commands:
   index           (Re)build the internal SQLite index from the git store
   query           List recent sessions from the index  [--limit N] [--agent X]
   usage           Aggregated token/cost usage (totals/by-agent/by-day)  [--json]
+  graph           Sessions × topics graph (nodes + edges)  [--json]
   search          Full-text search session turns  <text> [--limit N]
   fork            Fork a session at a turn ("git for sessions")  <session-id> --at N [--id X]
   analytics       Compute MVP-2 rollups + digest into analytics/

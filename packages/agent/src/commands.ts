@@ -234,6 +234,21 @@ export function cmdFork(
   }
 }
 
+/** Sessions × topics graph (nodes + edges) from the CS index. JSON for the graph view. */
+export function cmdGraph(cfg: CodeSessionsConfig, opts: { json?: boolean } = {}): CommandResult {
+  syncIndex(cfg);
+  const index = new SessionIndex(cfg.indexPath);
+  try {
+    const g = index.graphData();
+    if (opts.json) return { code: 0, output: JSON.stringify(g) };
+    const topics = g.nodes.filter((n) => n.kind === 'topic').length;
+    const sessions = g.nodes.filter((n) => n.kind === 'session').length;
+    return { code: 0, output: `graph: ${sessions} sessions across ${topics} topics, ${g.edges.length} edges` };
+  } finally {
+    index.close();
+  }
+}
+
 /** Aggregated usage from the CS index (totals/byAgent/byDay/byProject/topByCost). */
 export function cmdUsage(cfg: CodeSessionsConfig, opts: { json?: boolean } = {}): CommandResult {
   syncIndex(cfg); // ensure the index reflects the current store

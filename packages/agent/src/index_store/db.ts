@@ -51,6 +51,25 @@ export interface UsageBucket {
   cost_usd: number;
 }
 
+export interface GraphNode {
+  id: string;
+  kind: 'session' | 'topic';
+  label: string;
+  agent?: string;
+  intent?: string | null;
+  cost_usd: number;
+  sessions: number;
+}
+export interface GraphEdge {
+  from: string;
+  to: string;
+  kind: 'has-topic' | 'forked-from';
+}
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
 export interface UsageSummary {
   totals: { sessions: number; input_tokens: number; output_tokens: number; cost_usd: number };
   byAgent: Record<string, UsageBucket>;
@@ -306,6 +325,44 @@ export class SessionIndex {
       )
       .all(like, like, limit);
     return (rows as any[]).map((r) => this.rowToIndex(r));
+  }
+
+  /** Graph of sessions clustered by topic (+ fork lineage where known). */
+  graphData(): GraphData {
+    const rows = this.db
+      .prepare('SELECT session_id, agent, topic, intent, cost_usd, title FROM session ORDER BY started_at DESC')
+      .all() as any[];
+    const nodes: GraphNode[] = [];
+    const edges: GraphEdge[] = [];
+    const topicNodes = new Map<string, string>(); // topic -> node id
+    const topicId = (t: string) => {
+      let id = topicNodes.get(t);
+      if (!id) {
+        id = `topic:${topicNodes.size}`;
+        topicNodes.set(t, id);
+        nodes.push({ id, kind: 'topic', label: t, sessions: 0, cost_usd: 0 });
+      }
+      return id;
+    };
+    for (const r of rows) {
+      const sid = `s:${r.session_id}`;
+      nodes.push({
+        id: sid,
+        kind: 'session',
+        label: (r.topic || r.title || r.session_id).slice(0, 48),
+        agent: r.agent,
+        intent: r.intent ?? null,
+        cost_usd: r.cost_usd,
+        sessions: 1,
+      });
+      const topic = (r.topic || r.intent || 'misc').toString();
+      const tid = topicId(topic);
+      edges.push({ from: sid, to: tid, kind: 'has-topic' });
+      const tn = nodes.find((n) => n.id === tid)!;
+      tn.sessions += 1;
+      tn.cost_usd += r.cost_usd;
+    }
+    return { nodes, edges };
   }
 
   /** Aggregated usage for a Usage panel: totals, by agent, by day, by project, top cost. */

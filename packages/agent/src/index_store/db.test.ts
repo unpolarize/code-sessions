@@ -116,6 +116,25 @@ describe('SessionIndex', () => {
     }
   });
 
+  it('builds a sessions×topics graph', () => {
+    const idx = new SessionIndex(':memory:');
+    try {
+      idx.upsertSession(env('a', 'claude-code'), { ...src, topic: 'fix parser' });
+      idx.upsertSession(env('b', 'grok'), { ...src, source_path: '/s/b.json', topic: 'fix parser' });
+      idx.upsertSession(env('c', 'codex'), { ...src, source_path: '/s/c.json', topic: 'add feature' });
+      const g = idx.graphData();
+      const topics = g.nodes.filter((n) => n.kind === 'topic');
+      const sessions = g.nodes.filter((n) => n.kind === 'session');
+      expect(sessions).toHaveLength(3);
+      expect(topics).toHaveLength(2); // "fix parser" + "add feature"
+      expect(g.edges).toHaveLength(3); // each session -> its topic
+      const fixParser = topics.find((t) => t.label === 'fix parser')!;
+      expect(fixParser.sessions).toBe(2);
+    } finally {
+      idx.close();
+    }
+  });
+
   it('filters by agent and deletes sessions (cascade turns)', () => {
     const idx = new SessionIndex(':memory:');
     try {

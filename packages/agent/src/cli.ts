@@ -5,6 +5,7 @@ import {
   cmdDoctor,
   cmdExport,
   cmdFork,
+  cmdGraph,
   cmdIndex,
   cmdInit,
   cmdInstallHooks,
@@ -73,6 +74,9 @@ export async function main(argv: string[]): Promise<void> {
       break;
     case 'usage':
       emit(cmdUsage(cfg, { json: flags.json === true }));
+      break;
+    case 'graph':
+      emit(cmdGraph(cfg, { json: flags.json === true }));
       break;
     case 'query':
       emit(
