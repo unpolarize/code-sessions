@@ -95,6 +95,14 @@ export const SessionSchema = z
       .object({ session_id: z.string(), turn_index: z.number().int().nonnegative() })
       .strict()
       .optional(),
+    /**
+     * knowledge-planning object ids this session advanced (e.g.
+     * `plans/001-kb-planning-mvp`, `daily/2026-06-21`). The reverse of a planning
+     * object's `linked_sessions`; written by `kp link-session`.
+     */
+    planning_refs: z.array(z.string()).default([]),
+    /** execution phase when linked to a plan (mirrors the planning kanban lanes) */
+    phase: z.enum(['backlog', 'planning', 'implementing', 'validating', 'complete']).optional(),
     native_ref: NativeRefSchema,
   })
   .strict();

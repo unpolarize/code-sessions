@@ -90,6 +90,21 @@ describe('SessionSchema', () => {
     expect(s.turn_count).toBe(0);
     expect(s.labels).toEqual([]);
     expect(s.totals.cost_usd).toBe(0);
+    expect(s.planning_refs).toEqual([]);
+  });
+
+  it('carries planning_refs and phase for knowledge-planning linkage', () => {
+    const s = parseSession({
+      schema: SCHEMA_VERSIONS.session,
+      session_id: 's',
+      host: 'h',
+      agent: 'claude-code',
+      planning_refs: ['plans/001-kb-planning-mvp', 'daily/2026-06-21'],
+      phase: 'implementing',
+      native_ref: { format: 'claude-jsonl', uuid: 's' },
+    });
+    expect(s.planning_refs).toContain('plans/001-kb-planning-mvp');
+    expect(s.phase).toBe('implementing');
   });
 });
 
