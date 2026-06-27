@@ -1,9 +1,15 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { safeParseSession, type SessionEnvelope } from '@unpolarize/code-sessions-schema';
+import {
+  safeParseInsights,
+  safeParseSession,
+  type Insights,
+  type SessionEnvelope,
+} from '@unpolarize/code-sessions-schema';
 import type { CodeSessionsConfig } from '../config';
-import { envelopeFile } from '../store/paths';
+import { envelopeFile, insightsFile } from '../store/paths';
 import { listSessionDirs } from '../store/scan';
 import { readTurns } from '../store/writer';
+import { sessionAttribution } from './attribution';
 import { buildMetricPayload, buildTracePayload, postOtlp, type PostResult } from './otlp';
 
 export interface SessionExportResult {
@@ -25,6 +31,18 @@ function loadEnvelope(sessionDir: string): SessionEnvelope | undefined {
   }
 }
 
+/** Load insights/labels.json (intent/topic/projects) when present; never throws. */
+function loadInsights(sessionDir: string): Insights | undefined {
+  const path = insightsFile(sessionDir);
+  if (!existsSync(path)) return undefined;
+  try {
+    const parsed = safeParseInsights(JSON.parse(readFileSync(path, 'utf8')));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Export one session's traces + metrics over OTLP/HTTP. Resilient: never throws. */
 export async function exportSession(
   cfg: CodeSessionsConfig,
@@ -34,10 +52,32 @@ export async function exportSession(
   const envelope = loadEnvelope(sessionDir);
   if (!envelope) return { ok: false, reason: 'no envelope' };
   const turns = readTurns(sessionDir);
-  const { endpoint, serviceName, timeoutMs } = cfg.telemetry;
+  const insights = loadInsights(sessionDir);
+  const attribution = sessionAttribution(envelope, turns, insights, cfg.attribution);
+  const turnCategories = new Map((insights?.turn_categories ?? []).map((c) => [c.turn_index, c.category]));
+  const { endpoint, serviceName, timeoutMs, tracesPath, metricsPath, headers, emitContent, emitMetrics } =
+    cfg.telemetry;
+  // Generic OTLP routing: default paths, with optional per-backend overrides +
+  // custom headers (auth/tenancy/routing) and an opt-in span-content toggle.
+  const hdrs = headers ?? {};
 
-  const traces = await postOtlp(endpoint, '/v1/traces', buildTracePayload(envelope, turns, serviceName), timeoutMs);
-  const metrics = await postOtlp(endpoint, '/v1/metrics', buildMetricPayload(envelope, turns, serviceName), timeoutMs);
+  const traces = await postOtlp(
+    endpoint,
+    tracesPath ?? '/v1/traces',
+    buildTracePayload(envelope, turns, serviceName, attribution, turnCategories, emitContent === true),
+    timeoutMs,
+    hdrs,
+  );
+  if (emitMetrics === false) {
+    return { ok: traces.ok, traces };
+  }
+  const metrics = await postOtlp(
+    endpoint,
+    metricsPath ?? '/v1/metrics',
+    buildMetricPayload(envelope, turns, serviceName, attribution),
+    timeoutMs,
+    hdrs,
+  );
   return { ok: traces.ok && metrics.ok, traces, metrics };
 }
 

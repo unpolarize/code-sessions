@@ -5,7 +5,7 @@ import { makeConfig, withTempDirAsync } from '../test/tmp';
 import { envelopeFile, insightsFile, sessionDir } from '../store/paths';
 import { rebuildEnvelope, writeTurnFile } from '../store/writer';
 import { FakeProvider, type Provider } from './provider';
-import { labelSession, makeProvider, reindexStore } from './labeler';
+import { labelSession, makeProvider, makeTurnClassifier, reindexStore } from './labeler';
 
 function turn(i: number, over: Partial<Turn> = {}): Turn {
   return {
@@ -83,6 +83,34 @@ describe('labelSession', () => {
       const ins = await labelSession(dir, { sessionId: 'empty', host: 'h' }, new FakeProvider());
       expect(ins).toBeUndefined();
     });
+  });
+
+  it('stores per-turn categories produced by the classifier', async () => {
+    await withTempDirAsync(async (store) => {
+      const dir = seedSession(store);
+      const classify = async (turns: Turn[]) =>
+        turns.map((t) => ({ turn_index: t.turn_index, category: t.role === 'user' ? 'planning' : 'coding' }));
+      const ins = await labelSession(dir, { sessionId: 's1', host: 'h' }, new FakeProvider(), {
+        now: '2026-06-20T09:00:00Z',
+        classify,
+      });
+      expect(ins!.turn_categories).toEqual([
+        { turn_index: 0, category: 'planning' },
+        { turn_index: 1, category: 'coding' },
+      ]);
+      const onDisk = JSON.parse(readFileSync(insightsFile(dir), 'utf8'));
+      expect(onDisk.turn_categories).toHaveLength(2);
+    });
+  });
+});
+
+describe('makeTurnClassifier', () => {
+  it('is undefined unless classification is enabled with a category list', () => {
+    expect(makeTurnClassifier(makeConfig('/tmp/x'))).toBeUndefined();
+    expect(makeTurnClassifier(makeConfig('/tmp/x', { insights: { classifyTurns: true } }))).toBeUndefined();
+    expect(
+      makeTurnClassifier(makeConfig('/tmp/x', { insights: { classifyTurns: true, categories: ['coding'] } })),
+    ).toBeTypeOf('function');
   });
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Turn } from '@unpolarize/code-sessions-schema';
 import { deriveIntent, deriveProjects, deriveSignals, deriveTags, guessTopic } from './heuristics';
+import { RepoResolver } from './repo';
 
 function turn(i: number, over: Partial<Turn> = {}): Turn {
   return {
@@ -61,6 +62,24 @@ describe('guessTopic / deriveTags', () => {
     expect(topic).toContain('Fix the bug');
   });
 
+  it('strips the slash-command wrapper and uses <command-name> + <command-args>', () => {
+    const topic = guessTopic([
+      turn(0, {
+        role: 'user',
+        text: '<command-message>load</command-message><command-name>/load</command-name><command-args>review the new requirements</command-args>',
+      }),
+    ]);
+    expect(topic).toBe('/load review the new requirements');
+    expect(topic).not.toMatch(/command-message|command-name|command-args/);
+  });
+
+  it('strips a system-reminder block from a plain first prompt', () => {
+    const topic = guessTopic([
+      turn(0, { role: 'user', text: '<system-reminder>context here</system-reminder>Fix the parser crash now' }),
+    ]);
+    expect(topic).toBe('Fix the parser crash now');
+  });
+
   it('collects distinct tool names as tags', () => {
     const tags = deriveTags([
       turn(0, { tool_calls: [{ name: 'Read' }, { name: 'Edit' }] }),
@@ -82,12 +101,27 @@ describe('deriveIntent', () => {
 });
 
 describe('deriveProjects', () => {
-  it('derives project ids from edited file paths', () => {
+  it('derives project ids from edited file paths (path-convention fallback)', () => {
     const projects = deriveProjects([
       turn(0, { tool_calls: [{ name: 'Edit', input: { file_path: '/Users/x/projects/foo/a.ts' } }] }),
       turn(1, { tool_calls: [{ name: 'Write', input: { file_path: '/Users/x/projects/ai/bar/b.ts' } }] }),
       turn(2, { tool_calls: [{ name: 'Read', input: { path: '/Users/x/docs/notes.md' } }] }),
     ]);
     expect(projects).toEqual(['ai/bar', 'docs', 'foo']);
+  });
+
+  it('labels by top-most git repo, falling back to path convention when no repo encloses the path', () => {
+    const resolver = new RepoResolver({
+      isGitRoot: (d) => d === '/work/acme',
+      remoteUrl: () => 'git@github.com:acme/app.git',
+    });
+    const projects = deriveProjects(
+      [
+        turn(0, { tool_calls: [{ name: 'Edit', input: { file_path: '/work/acme/src/a.ts' } }] }),
+        turn(1, { tool_calls: [{ name: 'Write', input: { file_path: '/Users/x/projects/foo/b.ts' } }] }),
+      ],
+      resolver,
+    );
+    expect(projects).toEqual(['acme/app', 'foo']);
   });
 });

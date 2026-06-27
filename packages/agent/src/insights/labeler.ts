@@ -6,14 +6,20 @@ import {
   type Insights,
   type SessionEnvelope,
   type Signal,
+  type Turn,
+  type TurnCategory,
 } from '@unpolarize/code-sessions-schema';
 import type { CodeSessionsConfig } from '../config';
 import { envelopeFile, insightsFile } from '../store/paths';
 import { listSessionDirs } from '../store/scan';
 import { readTurns } from '../store/writer';
+import { classifyTurns } from './classifier';
 import { deriveIntent, deriveProjects, deriveSignals, deriveTags, guessTopic } from './heuristics';
 import { FakeProvider, type LabelResult, type Provider } from './provider';
 import { LlmProvider, claudeRunner, grokRunner, ollamaRunner } from './llm';
+
+/** Classifies a session's turns into the configured category taxonomy. */
+export type TurnClassifier = (turns: Turn[]) => Promise<TurnCategory[]>;
 
 function writeJsonAtomic(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -37,6 +43,19 @@ function dedupeSignals(signals: Signal[]): Signal[] {
 export interface LabelOptions {
   /** ISO timestamp for the insights record (injectable for deterministic tests) */
   now?: string;
+  /** when set, classifies each turn into a configured category and stores the result */
+  classify?: TurnClassifier;
+}
+
+/**
+ * Build the per-turn classifier configured in cfg, or undefined when classification
+ * is disabled / no category taxonomy is set. Always uses the local ollama runner.
+ */
+export function makeTurnClassifier(cfg: CodeSessionsConfig): TurnClassifier | undefined {
+  const { categories, classifyTurns: enabled, classifierModel, model } = cfg.insights;
+  if (!enabled || !categories || categories.length === 0) return undefined;
+  const runner = ollamaRunner(classifierModel ?? model);
+  return (turns) => classifyTurns(turns, categories, runner);
 }
 
 /** Build the provider configured in cfg, or null when insights are disabled. */
@@ -95,10 +114,15 @@ export async function labelSession(
     tags,
     projects,
     signals,
+    turn_categories: [],
   };
   if (topic) insights.topic = topic;
   if (intent) insights.intent = intent;
   if (provided.summary) insights.summary = provided.summary;
+  if (opts.classify) {
+    const categories = await opts.classify(turns);
+    if (categories.length > 0) insights.turn_categories = categories;
+  }
 
   writeJsonAtomic(insightsFile(sessionDir), insights);
   updateEnvelopeLabels(sessionDir, { topic, intent, projects });
@@ -139,9 +163,12 @@ export async function reindexStore(
   opts: { sinceMonth?: string; now?: string } = {},
 ): Promise<ReindexResult> {
   const refs = listSessionDirs(cfg.storeDir, opts.sinceMonth ? { sinceMonth: opts.sinceMonth } : {});
+  const classify = makeTurnClassifier(cfg);
   const labeled: string[] = [];
   for (const ref of refs) {
-    const labelOpts = opts.now ? { now: opts.now } : {};
+    const labelOpts: LabelOptions = {};
+    if (opts.now) labelOpts.now = opts.now;
+    if (classify) labelOpts.classify = classify;
     const res = await labelSession(ref.dir, { sessionId: ref.sessionId, host: ref.host }, provider, labelOpts);
     if (res) labeled.push(ref.sessionId);
   }

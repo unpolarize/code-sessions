@@ -1,0 +1,39 @@
+# Local telemetry ingestion stack: OTel Collector (contrib) + ClickHouse (OLAP example).
+#
+#   docker compose -f examples/otel-collector/docker-compose.yaml up -d
+#   CODE_SESSIONS_TELEMETRY=1 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+#     node packages/agent/bin/code-sessions.mjs export --since 2026-05
+#
+# Collector listens on :4318 (OTLP/HTTP, what code-sessions posts) and :4317 (gRPC).
+# ClickHouse is reachable on localhost:8123 (HTTP) / localhost:9000 (native).
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24
+    environment:
+      CLICKHOUSE_DB: otel
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "8123:8123"   # HTTP (clickhouse-client / SQL over HTTP)
+      - "9000:9000"   # native protocol (used by the collector exporter)
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4318:4318"   # OTLP/HTTP  <-- code-sessions exports here
+      - "4317:4317"   # OTLP/gRPC
+    depends_on:
+      clickhouse:
+        condition: service_healthy

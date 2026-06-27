@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { describe, expect, it } from 'vitest';
 import type { SessionEnvelope, Turn } from '@unpolarize/code-sessions-schema';
-import { buildMetricPayload, buildTracePayload, isoNano, postOtlp } from './otlp';
+import { buildMetricPayload, buildTracePayload, isoNano, postOtlp, type Attribution } from './otlp';
 
 const envelope: SessionEnvelope = {
   schema: 'session-store/session@1',
@@ -18,6 +18,7 @@ const envelope: SessionEnvelope = {
   totals: { input_tokens: 1100, output_tokens: 30, cost_usd: 0.5 },
   title: 'demo',
   labels: [],
+  planning_refs: [],
   native_ref: { format: 'claude-jsonl', uuid: 'sess-otlp' },
 };
 
@@ -80,6 +81,56 @@ describe('buildTracePayload', () => {
   });
 });
 
+const attribution: Attribution = {
+  intent: 'feature',
+  topic: 'otel exporter',
+  repo: 'unpolarize/code-sessions',
+  repoUrl: 'git@github.com:unpolarize/code-sessions.git',
+  enduser: 'a@x.com',
+  team: 'platform',
+  department: 'eng',
+  custom: { 'cost.center': 'cc-42', tenant: 'acme' },
+};
+
+describe('buildTracePayload attribution', () => {
+  it('puts intent/topic/repo/identity on the root span as GenAI semconv attributes', () => {
+    const p = buildTracePayload(envelope, turns, 'code-sessions', attribution) as any;
+    const root = p.resourceSpans[0].scopeSpans[0].spans[0];
+    const get = (k: string) => root.attributes.find((a: any) => a.key === k)?.value.stringValue;
+    expect(get('gen_ai.conversation.intent')).toBe('feature');
+    expect(get('gen_ai.conversation.topic')).toBe('otel exporter');
+    expect(get('code.repository')).toBe('unpolarize/code-sessions');
+    expect(get('vcs.repository.url')).toBe('git@github.com:unpolarize/code-sessions.git');
+    expect(get('enduser.id')).toBe('a@x.com');
+    expect(get('organization.team')).toBe('platform');
+    expect(get('organization.department')).toBe('eng');
+    // standard GenAI correlation/agent fields too
+    expect(get('gen_ai.conversation.id')).toBe('sess-otlp');
+    expect(get('gen_ai.agent.name')).toBe('claude-code');
+    // user-defined custom attributes pass through verbatim
+    expect(get('cost.center')).toBe('cc-42');
+    expect(get('tenant')).toBe('acme');
+  });
+
+  it('omits attribution attributes entirely when none are given', () => {
+    const p = buildTracePayload(envelope, turns, 'code-sessions') as any;
+    const root = p.resourceSpans[0].scopeSpans[0].spans[0];
+    expect(root.attributes.some((a: any) => a.key === 'enduser.id')).toBe(false);
+    expect(root.attributes.some((a: any) => a.key === 'code.repository')).toBe(false);
+  });
+
+  it('tags each turn span with its classified category when provided', () => {
+    const categories = new Map([[1, 'coding']]);
+    const p = buildTracePayload(envelope, turns, 'code-sessions', undefined, categories) as any;
+    const spans = p.resourceSpans[0].scopeSpans[0].spans;
+    const turnSpan = (idx: number) =>
+      spans.find((s: any) => s.attributes.some((a: any) => a.key === 'turn.index' && a.value.intValue === idx));
+    const cat = turnSpan(1).attributes.find((a: any) => a.key === 'code_sessions.turn.category');
+    expect(cat.value.stringValue).toBe('coding');
+    expect(turnSpan(0).attributes.some((a: any) => a.key === 'code_sessions.turn.category')).toBe(false);
+  });
+});
+
 describe('buildMetricPayload', () => {
   it('emits token sum + cost gauge + turn count', () => {
     const p = buildMetricPayload(envelope, turns, 'code-sessions') as any;
@@ -88,6 +139,17 @@ describe('buildMetricPayload', () => {
     expect(byName['code_sessions.tokens'].sum.dataPoints).toHaveLength(4);
     expect(byName['code_sessions.cost_usd'].gauge.dataPoints[0].asDouble).toBe(0.5);
     expect(byName['code_sessions.turns'].sum.dataPoints[0].asInt).toBe(2);
+  });
+
+  it('carries attribution dims on every metric data point (group-by axes)', () => {
+    const p = buildMetricPayload(envelope, turns, 'code-sessions', attribution) as any;
+    const metrics = p.resourceMetrics[0].scopeMetrics[0].metrics;
+    const dp = metrics.find((m: any) => m.name === 'code_sessions.tokens').sum.dataPoints[0];
+    const get = (k: string) => dp.attributes.find((a: any) => a.key === k)?.value.stringValue;
+    expect(get('code.repository')).toBe('unpolarize/code-sessions');
+    expect(get('organization.team')).toBe('platform');
+    expect(get('gen_ai.conversation.intent')).toBe('feature');
+    expect(get('cost.center')).toBe('cc-42'); // custom dims are group-by axes too
   });
 });
 

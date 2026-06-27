@@ -6,6 +6,19 @@ import type { AgentKind } from '@unpolarize/code-sessions-schema';
 export type InsightsProvider = 'none' | 'fake' | 'claude' | 'grok' | 'ollama';
 export type InsightsMode = 'off' | 'on-stop' | 'per-turn';
 
+/** Identity / team / department / custom attribution enrichment (all optional, additive). */
+export interface AttributionConfig {
+  /** explicit enduser id; overrides git/OS resolution */
+  enduser?: string;
+  /** static team/department used when no per-repo mapping matches */
+  team?: string;
+  department?: string;
+  /** repo label (`org/repo` or basename) → team/department */
+  teamByRepo?: Record<string, { team?: string; department?: string }>;
+  /** arbitrary extra attributes emitted verbatim on every span + metric point */
+  custom?: Record<string, string>;
+}
+
 export interface CodeSessionsConfig {
   /** logical host id; keys store paths so two machines never collide */
   host: string;
@@ -44,6 +57,12 @@ export interface CodeSessionsConfig {
     mode: InsightsMode;
     /** model/tag passed to the provider (e.g. ollama model name) */
     model?: string;
+    /** predefined per-turn category taxonomy (configurable); enables classification when set */
+    categories?: string[];
+    /** classify each turn into one `categories` value via the ollama classifier */
+    classifyTurns?: boolean;
+    /** ollama model for per-turn classification (defaults to `model`, then llama3.1) */
+    classifierModel?: string;
   };
   telemetry: {
     /** export captured sessions as OTLP to a collector */
@@ -52,7 +71,20 @@ export interface CodeSessionsConfig {
     endpoint: string;
     serviceName: string;
     timeoutMs: number;
+    /** override the trace path appended to `endpoint` (default `/v1/traces`) */
+    tracesPath?: string;
+    /** override the metric path appended to `endpoint` (default `/v1/metrics`) */
+    metricsPath?: string;
+    /** extra HTTP headers sent on every export (auth / tenancy / routing) */
+    headers?: Record<string, string>;
+    /** emit first-prompt / last-reply (and per-turn) text as span content. Off by
+     * default — message content can be sensitive. */
+    emitContent?: boolean;
+    /** set false to export traces only (skip metrics) for trace-only backends */
+    emitMetrics?: boolean;
   };
+  /** identity / team / department / custom attribution enrichment for the export */
+  attribution: AttributionConfig;
 }
 
 export function defaultConfig(home = homedir(), host = hostname()): CodeSessionsConfig {
@@ -77,6 +109,7 @@ export function defaultConfig(home = homedir(), host = hostname()): CodeSessions
       serviceName: 'code-sessions',
       timeoutMs: 2000,
     },
+    attribution: {},
   };
 }
 
@@ -96,7 +129,14 @@ export function resolveConfig(
     hygiene: { ...base.hygiene, ...stripUndefined(override.hygiene) },
     git: { ...base.git, ...stripUndefined(override.git) },
     insights: { ...base.insights, ...stripUndefined(override.insights) },
-    telemetry: { ...base.telemetry, ...stripUndefined(override.telemetry) },
+    telemetry: {
+      ...base.telemetry,
+      ...stripUndefined(override.telemetry),
+      ...(base.telemetry.headers || override.telemetry?.headers
+        ? { headers: { ...base.telemetry.headers, ...(override.telemetry?.headers ?? {}) } }
+        : {}),
+    },
+    attribution: { ...base.attribution, ...stripUndefined(override.attribution) },
   };
   if (override.storeDir && override.runtimeDir === undefined) {
     merged.runtimeDir = join(merged.storeDir, '.daemon');
@@ -113,10 +153,14 @@ export function resolveConfig(
   return merged;
 }
 
-/** Load config from defaults <- ~/.sessions/config.json <- env <- explicit overrides. */
+/** Load config from defaults <- <store>/config.json <- env <- explicit overrides. */
 export function loadConfig(override: DeepPartial<CodeSessionsConfig> = {}): CodeSessionsConfig {
   let cfg = defaultConfig();
-  const configPath = join(cfg.storeDir, 'config.json');
+  // The store dir may be redirected by env or an explicit override (e.g. the
+  // --store CLI flag). Resolve it first so we load that store's config.json,
+  // not the default ~/.sessions one.
+  const storeDir = override.storeDir ?? process.env.CODE_SESSIONS_STORE ?? cfg.storeDir;
+  const configPath = join(storeDir, 'config.json');
   if (existsSync(configPath)) {
     try {
       const fileCfg = JSON.parse(readFileSync(configPath, 'utf8')) as DeepPartial<CodeSessionsConfig>;
@@ -138,9 +182,21 @@ function envOverrides(): DeepPartial<CodeSessionsConfig> {
   if (env.CODE_SESSIONS_REMOTE) o.git = { remote: env.CODE_SESSIONS_REMOTE };
   if (env.CODE_SESSIONS_INSIGHTS_PROVIDER)
     o.insights = { provider: env.CODE_SESSIONS_INSIGHTS_PROVIDER as InsightsProvider };
+  if (env.CODE_SESSIONS_CATEGORIES) {
+    const categories = env.CODE_SESSIONS_CATEGORIES.split(',').map((c) => c.trim()).filter(Boolean);
+    o.insights = { ...(o.insights ?? {}), categories, classifyTurns: true };
+  }
   if (env.OTEL_EXPORTER_OTLP_ENDPOINT) o.telemetry = { endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT };
   if (env.CODE_SESSIONS_TELEMETRY === '0' || env.CODE_SESSIONS_TELEMETRY === 'false')
     o.telemetry = { ...(o.telemetry ?? {}), enabled: false };
+  // Extra OTLP headers as JSON, e.g. CODE_SESSIONS_OTLP_HEADERS='{"Authorization":"Bearer …"}'
+  if (env.CODE_SESSIONS_OTLP_HEADERS) {
+    try {
+      o.telemetry = { ...(o.telemetry ?? {}), headers: JSON.parse(env.CODE_SESSIONS_OTLP_HEADERS) };
+    } catch {
+      // ignore malformed header JSON
+    }
+  }
   return o;
 }
 

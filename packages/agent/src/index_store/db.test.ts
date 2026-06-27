@@ -17,6 +17,7 @@ function env(id: string, agent: SessionEnvelope['agent'], over: Partial<SessionE
     totals: { input_tokens: 100, output_tokens: 20, cost_usd: 0.5 },
     title: `session ${id}`,
     labels: ['debugging'],
+    planning_refs: [],
     native_ref: { format: 'claude-jsonl', uuid: id },
     ...over,
   };

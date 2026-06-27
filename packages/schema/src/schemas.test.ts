@@ -123,6 +123,25 @@ describe('InsightsSchema', () => {
     expect(i.signals[0]!.kind).toBe('error-recovery');
     expect(i.tags).toContain('bug');
   });
+
+  it('carries per-turn categories and defaults them to empty', () => {
+    const base = {
+      schema: SCHEMA_VERSIONS.insights,
+      session_id: 's',
+      host: 'h',
+      generated_at: 't',
+      provider: 'ollama',
+    };
+    expect(parseInsights(base).turn_categories).toEqual([]);
+    const i = parseInsights({
+      ...base,
+      turn_categories: [
+        { turn_index: 0, category: 'coding' },
+        { turn_index: 1, category: 'debugging' },
+      ],
+    });
+    expect(i.turn_categories[1]!.category).toBe('debugging');
+  });
 });
 
 describe('JSON Schema exports', () => {

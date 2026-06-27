@@ -140,6 +140,15 @@ export const SignalSchema = z
   })
   .strict();
 
+/** A single turn's classification into one of the configured categories. */
+export const TurnCategorySchema = z
+  .object({
+    turn_index: z.number().int().nonnegative(),
+    /** one of the user-configured category labels (free-form to stay config-driven) */
+    category: z.string().min(1),
+  })
+  .strict();
+
 /** Derived insights: insights/labels.json (MVP-1.1) */
 export const InsightsSchema = z
   .object({
@@ -155,6 +164,8 @@ export const InsightsSchema = z
     /** project ids the session touched (derived from edited file paths) */
     projects: z.array(z.string()).default([]),
     signals: z.array(SignalSchema).default([]),
+    /** per-turn category labels (configurable taxonomy; classified by the LLM provider) */
+    turn_categories: z.array(TurnCategorySchema).default([]),
     summary: z.string().optional(),
   })
   .strict();
@@ -166,6 +177,7 @@ export type Turn = z.infer<typeof TurnSchema>;
 export type Totals = z.infer<typeof TotalsSchema>;
 export type SessionEnvelope = z.infer<typeof SessionSchema>;
 export type Signal = z.infer<typeof SignalSchema>;
+export type TurnCategory = z.infer<typeof TurnCategorySchema>;
 export type Insights = z.infer<typeof InsightsSchema>;
 export type AgentKind = (typeof AGENTS)[number];
 export type Role = (typeof ROLES)[number];

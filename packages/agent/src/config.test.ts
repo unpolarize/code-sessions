@@ -27,6 +27,16 @@ describe('config', () => {
     expect(merged.insights.mode).toBe('off'); // sibling preserved
   });
 
+  it('deep-merges the optional attribution block (siblings survive)', () => {
+    const withBase = resolveConfig(defaultConfig('/home/x', 'box'), {
+      attribution: { team: 'platform', enduser: 'base@x' },
+    });
+    const merged = resolveConfig(withBase, { attribution: { team: 'payments' } });
+    expect(merged.attribution.team).toBe('payments'); // overridden
+    expect(merged.attribution.enduser).toBe('base@x'); // sibling preserved → requires deep merge
+    expect(merged.insights.provider).toBe('none'); // unrelated section untouched
+  });
+
   it('re-derives runtime paths when storeDir is overridden', () => {
     const merged = resolveConfig(defaultConfig('/home/x', 'box'), { storeDir: '/tmp/store' });
     expect(merged.runtimeDir).toBe('/tmp/store/.daemon');

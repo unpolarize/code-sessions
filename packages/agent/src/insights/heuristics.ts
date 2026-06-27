@@ -1,4 +1,5 @@
 import type { Intent, Signal, Turn } from '@unpolarize/code-sessions-schema';
+import { RepoResolver, touchedPath } from './repo';
 
 /**
  * Deterministic, LLM-free signal derivation. Runs regardless of provider so the
@@ -90,11 +91,32 @@ export function deriveSignals(turns: Turn[]): Signal[] {
   return signals;
 }
 
+const COMMAND_WRAPPER_RE =
+  /<(command-message|command-name|command-args|command-contents|system-reminder|local-command-stdout|local-command-stderr|command-output)>[\s\S]*?<\/\1>/gi;
+
+/**
+ * Strip Claude Code's slash-command / harness wrapper tags from a user message so
+ * titles and topics aren't `<command-message>load</command-message>…`. For a
+ * `/command` invocation, return a readable `"<name> <args>"` (e.g. `/load review …`);
+ * otherwise remove the known wrapper blocks and keep the real prompt text.
+ */
+export function cleanCommandText(text: string): string {
+  if (!text) return text;
+  const nameTag = /<command-name>\s*([\s\S]*?)\s*<\/command-name>/i.exec(text)?.[1]?.trim();
+  const msgTag = /<command-message>\s*([\s\S]*?)\s*<\/command-message>/i.exec(text)?.[1]?.trim();
+  const name = nameTag || (msgTag ? `/${msgTag.replace(/^\//, '')}` : undefined);
+  if (name) {
+    const args = /<command-args>\s*([\s\S]*?)\s*<\/command-args>/i.exec(text)?.[1]?.trim() ?? '';
+    return (args ? `${name} ${args}` : name).trim();
+  }
+  return text.replace(COMMAND_WRAPPER_RE, '').trim();
+}
+
 /** A cheap, deterministic topic guess: first meaningful words of the first user turn. */
 export function guessTopic(turns: Turn[]): string | undefined {
   const firstUser = turns.find((t) => t.role === 'user' && t.text.trim().length > 0);
   if (!firstUser) return undefined;
-  const words = firstUser.text.trim().split(/\s+/).slice(0, 8).join(' ');
+  const words = cleanCommandText(firstUser.text).trim().split(/\s+/).slice(0, 8).join(' ');
   return words.length > 0 ? words : undefined;
 }
 
@@ -115,15 +137,18 @@ export function projectIdFromPath(p: string): string | null {
   return null;
 }
 
-/** Projects the session touched, from Edit/Write/Read tool file paths. */
-export function deriveProjects(turns: Turn[]): string[] {
+/**
+ * Projects the session touched, from Edit/Write/Read tool file paths. Each path is
+ * labeled by its top-most enclosing git repo (`org/repo` from the remote, else the
+ * repo basename); paths outside any repo fall back to the path-convention label.
+ */
+export function deriveProjects(turns: Turn[], resolver: RepoResolver = new RepoResolver()): string[] {
   const set = new Set<string>();
   for (const t of turns) {
     for (const c of t.tool_calls) {
-      const fp = (c.input as { file_path?: string; path?: string } | undefined)?.file_path
-        ?? (c.input as { path?: string } | undefined)?.path;
+      const fp = touchedPath(c.input);
       if (typeof fp === 'string') {
-        const id = projectIdFromPath(fp);
+        const id = resolver.resolve(fp)?.label ?? projectIdFromPath(fp);
         if (id) set.add(id);
       }
     }
@@ -145,7 +170,7 @@ const INTENT_PATTERNS: [Intent, RegExp][] = [
 export function deriveIntent(turns: Turn[]): Intent | undefined {
   const firstUser = turns.find((t) => t.role === 'user' && t.text.trim().length > 0);
   if (!firstUser) return undefined;
-  const text = firstUser.text;
+  const text = cleanCommandText(firstUser.text);
   for (const [intent, re] of INTENT_PATTERNS) {
     if (re.test(text)) return intent;
   }

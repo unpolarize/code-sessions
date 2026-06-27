@@ -4,7 +4,7 @@ import type { CodeSessionsConfig } from './config';
 import { CaptureEngine } from './capture';
 import { Daemon } from './daemon';
 import { FakeProvider } from './insights/provider';
-import { labelSession, makeProvider, reindexStore } from './insights/labeler';
+import { labelSession, makeProvider, makeTurnClassifier, reindexStore } from './insights/labeler';
 import { StateStore } from './state';
 import { GitStore } from './store/git';
 import { listSessionDirs, readEntries } from './store/scan';
@@ -339,13 +339,19 @@ export async function startDaemon(cfg: CodeSessionsConfig): Promise<Daemon> {
   const provider = makeProvider(cfg);
   const wantInsights = provider && cfg.insights.mode !== 'off';
   const wantTelemetry = cfg.telemetry.enabled;
+  const classify = makeTurnClassifier(cfg);
 
   const deps =
     wantInsights || wantTelemetry
       ? {
           onSessionEnd: async (sessionId: string, sessionDir: string) => {
             if (wantInsights && provider) {
-              await labelSession(sessionDir, { sessionId, host: cfg.host }, provider);
+              await labelSession(
+                sessionDir,
+                { sessionId, host: cfg.host },
+                provider,
+                classify ? { classify } : {},
+              );
             }
             if (wantTelemetry) {
               await exportSession(cfg, sessionDir);

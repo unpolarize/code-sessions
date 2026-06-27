@@ -94,6 +94,7 @@ export function computeEnvelope(
       cost_usd: Math.round(cost * 1e6) / 1e6,
     },
     labels: existing?.labels ?? [],
+    planning_refs: existing?.planning_refs ?? [],
     native_ref: { format: 'claude-jsonl', uuid: identity.native_uuid },
   };
   const branch = meta.git_branch ?? existing?.git_branch;

@@ -1,9 +1,11 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { dirname } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Turn } from '@unpolarize/code-sessions-schema';
 import { rebuildEnvelope, writeTurnFile } from '../store/writer';
-import { sessionDir } from '../store/paths';
+import { insightsFile, sessionDir } from '../store/paths';
 import { makeConfig, withTempDirAsync } from '../test/tmp';
 import { exportSession, exportStore } from './exporter';
 
@@ -84,6 +86,81 @@ describe('exportSession', () => {
       const cfg = makeConfig(store, { telemetry: { enabled: true, endpoint: 'http://127.0.0.1:9', timeoutMs: 400 } });
       const res = await exportSession(cfg, dir);
       expect(res.ok).toBe(false); // failed but did not throw
+    });
+  });
+});
+
+describe('exportSession attribution', () => {
+  it('carries configured identity/team onto the exported trace and metrics', async () => {
+    await withTempDirAsync(async (store) => {
+      const dir = seed(store);
+      const bodies: Record<string, string> = {};
+      const server = createServer((req, res) => {
+        let body = '';
+        req.on('data', (c) => (body += c));
+        req.on('end', () => {
+          bodies[req.url ?? ''] = body;
+          res.writeHead(200).end('{}');
+        });
+      });
+      await new Promise<void>((r) => server.listen(0, r));
+      const port = (server.address() as AddressInfo).port;
+      try {
+        const cfg = makeConfig(store, {
+          telemetry: { enabled: true, endpoint: `http://127.0.0.1:${port}` },
+          attribution: { enduser: 'svc', team: 'payments' },
+        });
+        const res = await exportSession(cfg, dir);
+        expect(res.ok).toBe(true);
+        expect(bodies['/v1/traces']).toContain('enduser.id');
+        expect(bodies['/v1/traces']).toContain('svc');
+        expect(bodies['/v1/traces']).toContain('organization.team');
+        expect(bodies['/v1/metrics']).toContain('payments'); // dims on metric data points too
+      } finally {
+        await new Promise<void>((r) => (server as Server).close(() => r()));
+      }
+    });
+  });
+});
+
+describe('exportSession turn categories', () => {
+  it('tags turn spans with per-turn categories read from insights/labels.json', async () => {
+    await withTempDirAsync(async (store) => {
+      const dir = seed(store);
+      const insights = {
+        schema: 'session-store/insights@1',
+        session_id: 's1',
+        host: 'h',
+        generated_at: '2026-06-20T09:00:00Z',
+        provider: 'ollama',
+        tags: [],
+        projects: [],
+        signals: [],
+        turn_categories: [{ turn_index: 1, category: 'coding' }],
+      };
+      mkdirSync(dirname(insightsFile(dir)), { recursive: true });
+      writeFileSync(insightsFile(dir), JSON.stringify(insights));
+
+      const bodies: Record<string, string> = {};
+      const server = createServer((req, res) => {
+        let body = '';
+        req.on('data', (c) => (body += c));
+        req.on('end', () => {
+          bodies[req.url ?? ''] = body;
+          res.writeHead(200).end('{}');
+        });
+      });
+      await new Promise<void>((r) => server.listen(0, r));
+      const port = (server.address() as AddressInfo).port;
+      try {
+        const cfg = makeConfig(store, { telemetry: { enabled: true, endpoint: `http://127.0.0.1:${port}` } });
+        const res = await exportSession(cfg, dir);
+        expect(res.ok).toBe(true);
+        expect(bodies['/v1/traces']).toContain('code_sessions.turn.category');
+        expect(bodies['/v1/traces']).toContain('coding');
+      } finally {
+        await new Promise<void>((r) => (server as Server).close(() => r()));
+      }
     });
   });
 });
