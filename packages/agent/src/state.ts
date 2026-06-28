@@ -19,6 +19,8 @@ export interface SessionState {
   startedAt?: string;
   lastTs?: string;
   endedAt?: string;
+  /** fingerprint (mtime:size) of an imported source file, for poll-based watch dedup */
+  sourceFingerprint?: string;
 }
 
 interface StateFile {

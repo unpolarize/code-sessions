@@ -87,8 +87,6 @@ const attribution: Attribution = {
   repo: 'unpolarize/code-sessions',
   repoUrl: 'git@github.com:unpolarize/code-sessions.git',
   enduser: 'a@x.com',
-  team: 'platform',
-  department: 'eng',
   custom: { 'cost.center': 'cc-42', tenant: 'acme' },
 };
 
@@ -102,8 +100,6 @@ describe('buildTracePayload attribution', () => {
     expect(get('code.repository')).toBe('unpolarize/code-sessions');
     expect(get('vcs.repository.url')).toBe('git@github.com:unpolarize/code-sessions.git');
     expect(get('enduser.id')).toBe('a@x.com');
-    expect(get('organization.team')).toBe('platform');
-    expect(get('organization.department')).toBe('eng');
     // standard GenAI correlation/agent fields too
     expect(get('gen_ai.conversation.id')).toBe('sess-otlp');
     expect(get('gen_ai.agent.name')).toBe('claude-code');
@@ -147,9 +143,9 @@ describe('buildMetricPayload', () => {
     const dp = metrics.find((m: any) => m.name === 'code_sessions.tokens').sum.dataPoints[0];
     const get = (k: string) => dp.attributes.find((a: any) => a.key === k)?.value.stringValue;
     expect(get('code.repository')).toBe('unpolarize/code-sessions');
-    expect(get('organization.team')).toBe('platform');
+    expect(get('enduser.id')).toBe('a@x.com');
     expect(get('gen_ai.conversation.intent')).toBe('feature');
-    expect(get('cost.center')).toBe('cc-42'); // custom dims are group-by axes too
+    expect(get('cost.center')).toBe('cc-42'); // custom association properties are group-by axes too
   });
 });
 

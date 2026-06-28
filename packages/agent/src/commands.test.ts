@@ -89,6 +89,14 @@ describe('cmdStatus / cmdDoctor', () => {
     });
   });
 
+  it('status reports the codex/grok source-watch config', () => {
+    withTempDir((root) => {
+      const res = cmdStatus(makeConfig(join(root, 'store'), { capture: { watch: { codex: true, grok: false, intervalMs: 30000 } } }));
+      expect(res.output).toMatch(/watch:\s+codex/);
+      expect(res.output).not.toMatch(/grok/);
+    });
+  });
+
   it('doctor returns non-zero when store is missing', () => {
     withTempDir((root) => {
       const res = cmdDoctor(makeConfig(join(root, 'absent')));

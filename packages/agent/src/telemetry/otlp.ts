@@ -41,11 +41,7 @@ export interface Attribution {
   repoUrl?: string;
   /** developer identity → enduser.id */
   enduser?: string;
-  /** owning team → organization.team */
-  team?: string;
-  /** owning department → organization.department */
-  department?: string;
-  /** arbitrary user-defined attributes, emitted verbatim under their own keys */
+  /** custom association properties, emitted verbatim under their own keys */
   custom?: Record<string, string>;
 }
 
@@ -58,8 +54,6 @@ function attributionMap(a: Attribution): Record<string, string> {
   if (a.repo) m['code.repository'] = a.repo;
   if (a.repoUrl) m['vcs.repository.url'] = a.repoUrl;
   if (a.enduser) m['enduser.id'] = a.enduser;
-  if (a.team) m['organization.team'] = a.team;
-  if (a.department) m['organization.department'] = a.department;
   for (const [k, v] of Object.entries(a.custom ?? {})) {
     if (k && typeof v === 'string' && v.length > 0) m[k] = v;
   }

@@ -51,7 +51,7 @@ const insightsBase: Insights = {
 };
 
 describe('sessionAttribution', () => {
-  it('composes dominant repo, identity (team-by-repo), and insights intent/topic', () => {
+  it('composes dominant repo, identity, per-project association properties, and insights intent/topic', () => {
     const resolver = new RepoResolver({
       isGitRoot: (d) => d === '/work/acme',
       remoteUrl: () => 'git@github.com:acme/app.git',
@@ -64,7 +64,11 @@ describe('sessionAttribution', () => {
       envelope({ project_path: '/work/acme' }),
       turns,
       insights,
-      { team: 'platform', teamByRepo: { 'acme/app': { team: 'payments', department: 'fintech' } } },
+      {
+        custom: { 'cost.center': 'cc-1', env: 'dev' },
+        // per-project properties override/extend the global ones when the dominant project matches
+        customByRepo: { 'acme/app': { env: 'prod', tenant: 'acme' } },
+      },
       { resolver, identity },
     );
 
@@ -72,8 +76,7 @@ describe('sessionAttribution', () => {
       repo: 'acme/app',
       repoUrl: 'git@github.com:acme/app.git',
       enduser: 'dev@acme.com',
-      team: 'payments',
-      department: 'fintech',
+      custom: { 'cost.center': 'cc-1', env: 'prod', tenant: 'acme' },
       intent: 'feature',
       topic: 'payments api',
     });

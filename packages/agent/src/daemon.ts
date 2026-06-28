@@ -7,6 +7,7 @@ import { isSessionEndEvent, parseHookEvent, type HookAck, type HookEvent } from 
 import { StateStore } from './state';
 import { GitStore } from './store/git';
 import { readEntries } from './store/scan';
+import { SourceWatcher, type ScanResult } from './watcher';
 
 export type SessionEndHook = (sessionId: string, sessionDir: string) => void | Promise<void>;
 
@@ -16,6 +17,8 @@ export interface DaemonDeps {
   git?: GitStore;
   /** invoked on Stop/SubagentStop — the insights labeler hooks in here */
   onSessionEnd?: SessionEndHook;
+  /** poll-based capture for hookless agents (codex/grok); auto-created from config when omitted */
+  watcher?: SourceWatcher;
 }
 
 export interface DaemonStatus {
@@ -59,6 +62,7 @@ export class Daemon {
   private readonly state: StateStore;
   private readonly git?: GitStore;
   private readonly onSessionEnd?: SessionEndHook;
+  private watcher?: SourceWatcher;
 
   private dirty = false;
   private pendingTurns = 0;
@@ -82,6 +86,7 @@ export class Daemon {
         });
     }
     if (deps.onSessionEnd) this.onSessionEnd = deps.onSessionEnd;
+    if (deps.watcher) this.watcher = deps.watcher;
   }
 
   async start(): Promise<void> {
@@ -98,6 +103,22 @@ export class Daemon {
       });
       this.server = server;
     });
+
+    // Poll-based capture for hookless agents (codex/grok). Auto-create from config
+    // unless one was injected. Runs an immediate scan, then on its own interval.
+    if (!this.watcher) {
+      const w = new SourceWatcher(this.cfg, this.state);
+      if (w.enabled) this.watcher = w;
+    }
+    this.watcher?.start((r) => this.onWatcherImported(r));
+  }
+
+  /** A watcher scan imported sessions into the store — mark dirty and schedule a commit. */
+  private onWatcherImported(r: ScanResult): void {
+    this.dirty = true;
+    this.pendingTurns += r.turns;
+    this.stats.turns += r.turns;
+    this.scheduleFlush();
   }
 
   private onConnection(sock: Socket): void {
@@ -195,6 +216,7 @@ export class Daemon {
   }
 
   async stop(): Promise<void> {
+    this.watcher?.stop();
     if (this.commitTimer) {
       clearTimeout(this.commitTimer);
       this.commitTimer = undefined;

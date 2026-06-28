@@ -1,6 +1,6 @@
 {
   "name": "@unpolarize/code-sessions",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "Headless, event-driven cross-agent session capture agent (daemon + CLI)",
   "license": "MIT",
   "type": "module",

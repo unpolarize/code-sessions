@@ -27,10 +27,12 @@ export function makeConfig(
   storeDir: string,
   override: DeepPartial<CodeSessionsConfig> = {},
 ): CodeSessionsConfig {
-  // telemetry off by default in tests so we never hit a real collector / time out
+  // telemetry off + source watching off by default in tests, so we never hit a real
+  // collector and never scan the real ~/.codex / ~/.grok dirs from a temp-store test.
   const base = resolveConfig(defaultConfig('/home/test', 'test-host'), {
     storeDir,
     telemetry: { enabled: false },
+    capture: { watch: { codex: false, grok: false } },
   });
   return resolveConfig(base, override);
 }

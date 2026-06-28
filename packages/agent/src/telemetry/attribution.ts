@@ -5,9 +5,10 @@ import { defaultIdentityDeps, resolveIdentity, type IdentityDeps } from './ident
 import type { Attribution } from './otlp';
 
 /**
- * Build the attribution for a session by composing the three derived
- * sources: the dominant repository (top-most git root), the developer/team/dept
- * identity, and the session's intent/topic from insights/labels.json. Git/FS/OS
+ * Build the attribution for a session by composing the derived sources — the
+ * dominant project (top-most git root), the developer identity (git/OS user),
+ * and the session's intent/topic from insights/labels.json — then layering on
+ * any configured custom association properties (global + per-project). Git/FS/OS
  * access is injectable so the composition is deterministic to test.
  */
 
@@ -36,6 +37,9 @@ export function sessionAttribution(
   if (insights?.topic) a.topic = insights.topic;
   if (repo) a.repo = repo.label;
   if (repo?.url) a.repoUrl = repo.url;
-  if (cfg.custom && Object.keys(cfg.custom).length > 0) a.custom = cfg.custom;
+
+  // Custom association properties: global, then per-project overrides for the dominant project.
+  const custom = { ...(cfg.custom ?? {}), ...(repo ? cfg.customByRepo?.[repo.label] ?? {} : {}) };
+  if (Object.keys(custom).length > 0) a.custom = custom;
   return a;
 }

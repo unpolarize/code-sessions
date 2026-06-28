@@ -91,7 +91,7 @@ describe('exportSession', () => {
 });
 
 describe('exportSession attribution', () => {
-  it('carries configured identity/team onto the exported trace and metrics', async () => {
+  it('carries configured identity + custom association properties onto the exported trace and metrics', async () => {
     await withTempDirAsync(async (store) => {
       const dir = seed(store);
       const bodies: Record<string, string> = {};
@@ -108,14 +108,14 @@ describe('exportSession attribution', () => {
       try {
         const cfg = makeConfig(store, {
           telemetry: { enabled: true, endpoint: `http://127.0.0.1:${port}` },
-          attribution: { enduser: 'svc', team: 'payments' },
+          attribution: { enduser: 'svc', custom: { 'cost.center': 'payments' } },
         });
         const res = await exportSession(cfg, dir);
         expect(res.ok).toBe(true);
         expect(bodies['/v1/traces']).toContain('enduser.id');
         expect(bodies['/v1/traces']).toContain('svc');
-        expect(bodies['/v1/traces']).toContain('organization.team');
-        expect(bodies['/v1/metrics']).toContain('payments'); // dims on metric data points too
+        expect(bodies['/v1/traces']).toContain('cost.center');
+        expect(bodies['/v1/metrics']).toContain('payments'); // association properties on metric data points too
       } finally {
         await new Promise<void>((r) => (server as Server).close(() => r()));
       }

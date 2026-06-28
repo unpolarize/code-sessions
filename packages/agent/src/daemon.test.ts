@@ -6,6 +6,8 @@ import { Daemon, findTranscript } from './daemon';
 import { sendEvent } from './ipc';
 import { sessionDir, turnFile } from './store/paths';
 import { makeConfig, withTempDir } from './test/tmp';
+import { StateStore } from './state';
+import { SourceWatcher } from './watcher';
 
 const LINES = [
   '{"type":"user","sessionId":"sess-1","cwd":"/proj","gitBranch":"main","timestamp":"2026-06-20T08:00:00Z","message":{"role":"user","content":"hi"}}',
@@ -113,6 +115,37 @@ describe('Daemon', () => {
         'sess-1',
         sessionDir(store, 'test-host', '2026-06', 'sess-1'),
       );
+    });
+  });
+});
+
+describe('Daemon source watcher', () => {
+  it('imports codex sessions via an injected watcher and commits them', async () => {
+    await withTempDirAsync(async (root) => {
+      const store = join(root, 'store');
+      const codexRoot = join(root, 'codex');
+      const dir = join(codexRoot, '2026', '06', '20');
+      mkdirSync(dir, { recursive: true });
+      const id = '11111111-2222-3333-4444-555555555555';
+      writeFileSync(
+        join(dir, `rollout-2026-06-20T09-00-00-${id}.jsonl`),
+        [
+          `{"timestamp":"2026-06-20T09:00:00Z","type":"session_meta","payload":{"id":"${id}","timestamp":"2026-06-20T09:00:00Z","model":"gpt-5-codex","cwd":"/x"}}`,
+          '{"timestamp":"2026-06-20T09:00:03Z","type":"event_msg","payload":{"type":"user_message","message":"hi"}}',
+          '{"timestamp":"2026-06-20T09:00:05Z","type":"event_msg","payload":{"type":"agent_message","message":"yo"}}',
+        ].join('\n'),
+      );
+
+      const cfg = makeConfig(store, { capture: { watch: { codex: true, grok: false, intervalMs: 999999 } } });
+      const state = new StateStore(cfg.statePath);
+      const watcher = new SourceWatcher(cfg, state, { codexRoot, grokRoot: join(root, 'none') });
+      const d = new Daemon(cfg, { state, watcher });
+      await d.start(); // start() runs an immediate watcher scan
+      await d.stop(); // flushes the imported session
+
+      const sdir = sessionDir(store, 'test-host', '2026-06', id);
+      expect(existsSync(turnFile(sdir, 0))).toBe(true);
+      expect(gitLogCount(store)).toBeGreaterThanOrEqual(1);
     });
   });
 });

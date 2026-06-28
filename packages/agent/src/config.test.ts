@@ -29,11 +29,11 @@ describe('config', () => {
 
   it('deep-merges the optional attribution block (siblings survive)', () => {
     const withBase = resolveConfig(defaultConfig('/home/x', 'box'), {
-      attribution: { team: 'platform', enduser: 'base@x' },
+      attribution: { enduser: 'base@x', custom: { env: 'dev' } },
     });
-    const merged = resolveConfig(withBase, { attribution: { team: 'payments' } });
-    expect(merged.attribution.team).toBe('payments'); // overridden
-    expect(merged.attribution.enduser).toBe('base@x'); // sibling preserved → requires deep merge
+    const merged = resolveConfig(withBase, { attribution: { enduser: 'svc@x' } });
+    expect(merged.attribution.enduser).toBe('svc@x'); // overridden
+    expect(merged.attribution.custom).toEqual({ env: 'dev' }); // sibling preserved → requires deep merge
     expect(merged.insights.provider).toBe('none'); // unrelated section untouched
   });
 

@@ -6,17 +6,23 @@ import type { AgentKind } from '@unpolarize/code-sessions-schema';
 export type InsightsProvider = 'none' | 'fake' | 'claude' | 'grok' | 'ollama';
 export type InsightsMode = 'off' | 'on-stop' | 'per-turn';
 
-/** Identity / team / department / custom attribution enrichment (all optional, additive). */
+/**
+ * Identity + custom association-property enrichment for the export (all optional, additive).
+ * The exporter already derives identity (host, OS user, git user → `enduser`) and the
+ * project (git repo) on its own; this block lets you attach arbitrary association
+ * properties on top, globally and/or per project.
+ */
 export interface AttributionConfig {
-  /** explicit enduser id; overrides git/OS resolution */
+  /** explicit enduser id; overrides the derived git/OS identity */
   enduser?: string;
-  /** static team/department used when no per-repo mapping matches */
-  team?: string;
-  department?: string;
-  /** repo label (`org/repo` or basename) → team/department */
-  teamByRepo?: Record<string, { team?: string; department?: string }>;
-  /** arbitrary extra attributes emitted verbatim on every span + metric point */
+  /** custom association properties emitted verbatim on every span + metric point */
   custom?: Record<string, string>;
+  /**
+   * per-project association properties, keyed by the resolved project (repo) label
+   * (`org/repo` from the origin remote, else the directory name). Merged over `custom`
+   * when a session's dominant project matches.
+   */
+  customByRepo?: Record<string, Record<string, string>>;
 }
 
 export interface CodeSessionsConfig {
@@ -83,8 +89,29 @@ export interface CodeSessionsConfig {
     /** set false to export traces only (skip metrics) for trace-only backends */
     emitMetrics?: boolean;
   };
-  /** identity / team / department / custom attribution enrichment for the export */
+  /** identity + custom association-property enrichment for the export */
   attribution: AttributionConfig;
+  /** continuous capture of agents that can't push hooks (codex, grok) — see SourceWatchConfig */
+  capture: CaptureConfig;
+}
+
+export interface CaptureConfig {
+  /**
+   * Poll-based capture for agents that write session files locally but can't push
+   * hook events to the daemon (codex, grok). The daemon periodically discovers and
+   * imports new/changed sessions, giving them the same store + telemetry as Claude.
+   * No-op when an agent isn't installed (its sessions dir is absent).
+   */
+  watch: SourceWatchConfig;
+}
+
+export interface SourceWatchConfig {
+  /** import Codex CLI rollouts from ~/.codex/sessions */
+  codex: boolean;
+  /** import Grok CLI sessions from ~/.grok/sessions */
+  grok: boolean;
+  /** how often the daemon re-scans the source dirs (ms) */
+  intervalMs: number;
 }
 
 export function defaultConfig(home = homedir(), host = hostname()): CodeSessionsConfig {
@@ -110,6 +137,7 @@ export function defaultConfig(home = homedir(), host = hostname()): CodeSessions
       timeoutMs: 2000,
     },
     attribution: {},
+    capture: { watch: { codex: true, grok: true, intervalMs: 30000 } },
   };
 }
 
@@ -137,6 +165,11 @@ export function resolveConfig(
         : {}),
     },
     attribution: { ...base.attribution, ...stripUndefined(override.attribution) },
+    capture: {
+      ...base.capture,
+      ...stripUndefined(override.capture),
+      watch: { ...base.capture.watch, ...stripUndefined(override.capture?.watch) },
+    },
   };
   if (override.storeDir && override.runtimeDir === undefined) {
     merged.runtimeDir = join(merged.storeDir, '.daemon');

@@ -20,17 +20,6 @@ describe('resolveIdentity', () => {
     expect(id.enduser).toBe('svc');
   });
 
-  it('maps team/department by repo label, falling back to static config', () => {
-    const cfg = {
-      team: 'platform',
-      department: 'eng',
-      teamByRepo: { 'acme/app': { team: 'payments', department: 'fintech' } },
-    };
-    expect(resolveIdentity({ label: 'acme/app' }, cfg, deps())).toMatchObject({ team: 'payments', department: 'fintech' });
-    expect(resolveIdentity({ label: 'other/repo' }, cfg, deps())).toMatchObject({ team: 'platform', department: 'eng' });
-    expect(resolveIdentity(undefined, cfg, deps())).toMatchObject({ team: 'platform', department: 'eng' });
-  });
-
   it('queries git user from the resolved repo root', () => {
     let askedRoot: string | undefined = 'unset';
     const d = deps({

@@ -90,6 +90,11 @@ export function cmdStatus(cfg: CodeSessionsConfig): CommandResult {
     `insights:   ${cfg.insights.provider} / ${cfg.insights.mode}`,
     `remote:     ${cfg.git.remote ?? '(none)'}  autoPush=${cfg.git.autoPush}`,
   ];
+  const watched = [
+    ...(cfg.capture.watch.codex ? ['codex'] : []),
+    ...(cfg.capture.watch.grok ? ['grok'] : []),
+  ];
+  lines.push(`watch:      ${watched.length ? `${watched.join(', ')} (every ${cfg.capture.watch.intervalMs}ms)` : '(off)'}`);
   return { code: 0, output: lines.join('\n') };
 }
 
