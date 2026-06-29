@@ -150,6 +150,24 @@ describe('Daemon source watcher', () => {
   });
 });
 
+describe('Daemon OTLP trigger', () => {
+  it('captures a claude session when handleTrigger fires (agent telemetry → capture)', async () => {
+    await withTempDirAsync(async (root) => {
+      const store = join(root, 'store');
+      const transcript = writeTranscript(join(root, 'projects', 'enc-proj'));
+      expect(existsSync(transcript)).toBe(true);
+      const cfg = makeConfig(store, { claudeProjectsDir: join(root, 'projects'), batch: { maxTurns: 1 } });
+      const d = new Daemon(cfg);
+      await d.start();
+      await d.handleTrigger('sess-1'); // as if Claude OTLP named this session
+      await d.stop();
+      const dir = sessionDir(store, 'test-host', '2026-06', 'sess-1');
+      expect(existsSync(turnFile(dir, 0))).toBe(true);
+      expect(gitLogCount(store)).toBeGreaterThanOrEqual(1);
+    });
+  });
+});
+
 // async temp-dir helper (mirror of withTempDir but awaits fn)
 async function withTempDirAsync<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const { mkdtempSync, rmSync } = await import('node:fs');

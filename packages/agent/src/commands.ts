@@ -95,6 +95,9 @@ export function cmdStatus(cfg: CodeSessionsConfig): CommandResult {
     ...(cfg.capture.watch.grok ? ['grok'] : []),
   ];
   lines.push(`watch:      ${watched.length ? `${watched.join(', ')} (every ${cfg.capture.watch.intervalMs}ms)` : '(off)'}`);
+  lines.push(
+    `otel-trig:  ${cfg.capture.otelTrigger.enabled ? `on :${cfg.capture.otelTrigger.port}` : '(off)'}`,
+  );
   return { code: 0, output: lines.join('\n') };
 }
 

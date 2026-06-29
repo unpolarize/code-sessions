@@ -94,10 +94,10 @@ per project. The key is the resolved project label (`org/repo`, or the directory
 - `tracesPath` / `metricsPath` — override the default OTLP paths for backends with custom routes.
 - `headers` — extra HTTP headers on every export (auth / tenancy / routing). Also via
   `CODE_SESSIONS_OTLP_HEADERS='{"Authorization":"Bearer …"}'`.
-- `emitContent` — when true, emit the first user prompt + last assistant reply (and per-turn
-  text) as `gen_ai.prompt.*` / `gen_ai.completion.*` span content. **Off by default — message
-  content can be sensitive.**
-- `emitMetrics` — set false to export traces only.
+- `emitContent` — when true, emit the user prompt / assistant reply as `gen_ai.input.messages` /
+  `gen_ai.output.messages` span content. **Off by default — message content can be sensitive.**
+- `emitMetrics` — set **true** to *additionally* export GenAI metrics. **Off by default** (the
+  trace `chat` spans already carry usage; aggregate from one signal, not both).
 
 ## Per-turn category classifier
 
@@ -116,7 +116,7 @@ Each turn is classified into one of a taxonomy you define, via a local **ollama*
 
 `CODE_SESSIONS_CATEGORIES="coding,debugging,planning"` sets `categories` and enables
 classification in one go. Stored in `insights/labels.json` (`turn_categories`), emitted as
-`code_sessions.turn.category` on turn spans.
+`code_sessions.turn.category` on the turn's `invoke_agent` + `chat` spans.
 
 ## Run it
 
@@ -128,19 +128,29 @@ code-sessions export --since 2026-05             # push enriched OTLP to your co
 See [`examples/otel-collector/`](../examples/otel-collector/) for a runnable, vendor-neutral
 OTel Collector you can point code-sessions at.
 
-## Emitted attribute reference
+## Emitted attribute reference (GenAI semconv)
 
-**Root span** — `session.id`, `gen_ai.conversation.id`, `gen_ai.system`, `gen_ai.agent.name`,
-`gen_ai.request.model`, `session.turn_count`, `gen_ai.usage.{input_tokens,output_tokens,cached_input_tokens}`,
-`code_sessions.cost_usd`, `project.path`, plus the derived attribution (`gen_ai.conversation.intent`/`.topic`,
-`code.repository`, `vcs.repository.url`, `enduser.id`) and your custom association properties under
-their own keys + a JSON `metadata` attribute. Optional `gen_ai.prompt.*`/`gen_ai.completion.*`
-content when `emitContent` is on.
+The model is **turn = trace, invocation = span** — one trace per conversational turn, correlated
+across a session by `gen_ai.conversation.id`. See [`architecture.md`](architecture.md) for the
+counting model.
 
-**Turn span** — `turn.index`, `gen_ai.role`, `gen_ai.usage.*`, `code_sessions.tool_count`,
-`code_sessions.cost_usd`, `code_sessions.turn.category` + optional content.
+**`invoke_agent` span (turn root)** — `gen_ai.operation.name=invoke_agent`, `gen_ai.conversation.id`,
+`gen_ai.agent.name`, `gen_ai.provider.name` (anthropic/openai/xai), `code_sessions.turn.index`, plus
+the derived + custom attribution (`enduser.id`, `code.repository`, `vcs.repository.url`,
+`gen_ai.conversation.intent`/`.topic`, `code_sessions.turn.category`, your custom association
+properties). Optional `gen_ai.input.messages` content when `emitContent` is on. **Carries no token
+totals** (no rollup).
 
-**Metric data points** (`code_sessions.tokens` by `gen_ai.token.type`, `code_sessions.cost_usd`,
-`code_sessions.turns`) — `session.id`, `gen_ai.system` + the full attribution set above.
+**`chat` span (LLM invocation, child of the root)** — `gen_ai.operation.name=chat`,
+`gen_ai.request.model`, `gen_ai.usage.{input_tokens,output_tokens,cache_read_tokens,cache_write_tokens}`,
+`code_sessions.cost_usd`, `code_sessions.turn.category`. Optional `gen_ai.output.messages` when
+`emitContent` is on. **Token/cost live only here.**
+
+**`execute_tool` span (tool invocation, child of a chat span)** — `gen_ai.operation.name=execute_tool`,
+`gen_ai.tool.name`, `gen_ai.tool.call.id`, `gen_ai.tool.type`.
+
+**Optional metrics** (`emitMetrics: true`) — `gen_ai.client.token.usage` (Sum, one point per `chat`
+× `gen_ai.token.type`) and `code_sessions.cost_usd` (Sum), each keyed by `gen_ai.conversation.id` +
+`code_sessions.turn.index` + the attribution set.
 
 `host.name` rides on the OTLP **resource** for every signal.

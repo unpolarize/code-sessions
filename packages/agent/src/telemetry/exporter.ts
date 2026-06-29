@@ -10,7 +10,8 @@ import { envelopeFile, insightsFile } from '../store/paths';
 import { listSessionDirs } from '../store/scan';
 import { readTurns } from '../store/writer';
 import { sessionAttribution } from './attribution';
-import { buildMetricPayload, buildTracePayload, postOtlp, type PostResult } from './otlp';
+import { postOtlp, type PostResult } from './otlp';
+import { buildGenaiMetrics, buildTurnTraces } from './genai';
 
 export interface SessionExportResult {
   ok: boolean;
@@ -61,20 +62,24 @@ export async function exportSession(
   // custom headers (auth/tenancy/routing) and an opt-in span-content toggle.
   const hdrs = headers ?? {};
 
+  // turn = trace, invocation = span (GenAI semconv). One OTLP request carries all
+  // of this session's turn-traces; turns correlate via gen_ai.conversation.id.
   const traces = await postOtlp(
     endpoint,
     tracesPath ?? '/v1/traces',
-    buildTracePayload(envelope, turns, serviceName, attribution, turnCategories, emitContent === true),
+    buildTurnTraces(envelope, turns, serviceName, attribution, turnCategories, emitContent === true),
     timeoutMs,
     hdrs,
   );
-  if (emitMetrics === false) {
+  // Metrics are optional (opt-in via telemetry.emitMetrics) — aggregate from
+  // EITHER the chat spans OR these metrics, never both.
+  if (emitMetrics !== true) {
     return { ok: traces.ok, traces };
   }
   const metrics = await postOtlp(
     endpoint,
     metricsPath ?? '/v1/metrics',
-    buildMetricPayload(envelope, turns, serviceName, attribution),
+    buildGenaiMetrics(envelope, turns, serviceName, attribution),
     timeoutMs,
     hdrs,
   );

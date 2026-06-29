@@ -36,12 +36,18 @@ VSCode extension ◀── reads the store / live daemon status
 Stacked capture signals, each degrading gracefully:
 
 1. **Hooks** (`SessionStart`/`PostToolUse`/`Stop`/`SubagentStop`) fire the *event*.
-2. **JSONL tail** reads the new bytes of the transcript for full *content*.
-3. **OTel** metrics (when `CLAUDE_CODE_ENABLE_TELEMETRY=1`) enrich turns with
-  cost/latency; otherwise usage is computed from the transcript.
+2. **JSONL tail** reads the new bytes of the transcript for full *content* — including
+  per-message token usage.
+3. **Cost + usage** — token usage is parsed from the transcript; cost is computed locally
+  from per-model list prices (`pricing.ts`). code-sessions does not ingest an agent's own
+  OTel stream — it *produces* OTLP on export.
 4. **Source watch** — agents that write sessions locally but can't push hooks
   (**Codex**, **Grok**) are captured by polling: the daemon discovers and imports
   new/changed sessions into the same store, on an interval (mtime+size dedup).
+
+See [`docs/architecture.md`](docs/architecture.md) for the full telemetry pipeline —
+inputs per agent, enrichment, outputs, and the session/turn counting model (where token/cost
+totals live and how to avoid double-counting them).
 
 ## Packages
 

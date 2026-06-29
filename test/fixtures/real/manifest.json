@@ -1,0 +1,41 @@
+{
+  "generated": "redacted from real on-disk sessions",
+  "fixtures": [
+    {
+      "agent": "codex",
+      "sessionId": "019dc2e0-c747-7232-9f50-6de7ca62d222",
+      "turns": 464,
+      "tools": 188
+    },
+    {
+      "agent": "codex",
+      "sessionId": "019ddc2e-8860-7663-8bd1-49bd222832f2",
+      "turns": 91,
+      "tools": 38
+    },
+    {
+      "agent": "grok",
+      "sessionId": "019e7c0b-8480-7cd3-a287-78b465c311ab",
+      "turns": 90,
+      "tools": 42
+    },
+    {
+      "agent": "grok",
+      "sessionId": "019e9970-0b36-7a70-b843-43bd5ad1a95d",
+      "turns": 21,
+      "tools": 10
+    },
+    {
+      "agent": "claude",
+      "sessionId": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "turns": 45,
+      "tools": 18
+    },
+    {
+      "agent": "claude",
+      "sessionId": "035a6a5a-0350-4172-9110-ce54f0e05823",
+      "turns": 19,
+      "tools": 6
+    }
+  ]
+}

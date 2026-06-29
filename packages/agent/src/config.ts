@@ -103,6 +103,19 @@ export interface CaptureConfig {
    * No-op when an agent isn't installed (its sessions dir is absent).
    */
   watch: SourceWatchConfig;
+  /**
+   * Use a coding agent's own OTLP telemetry as a capture trigger. The daemon runs a
+   * loopback OTLP receiver; point an agent's exporter at it
+   * (`CLAUDE_CODE_ENABLE_TELEMETRY=1 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:<port>`)
+   * and each inbound export re-captures + re-emits that session's GenAI-semconv traces.
+   */
+  otelTrigger: OtelTriggerConfig;
+}
+
+export interface OtelTriggerConfig {
+  enabled: boolean;
+  /** loopback TCP port the daemon's OTLP receiver listens on (point the agent here) */
+  port: number;
 }
 
 export interface SourceWatchConfig {
@@ -137,7 +150,10 @@ export function defaultConfig(home = homedir(), host = hostname()): CodeSessions
       timeoutMs: 2000,
     },
     attribution: {},
-    capture: { watch: { codex: true, grok: true, intervalMs: 30000 } },
+    capture: {
+      watch: { codex: true, grok: true, intervalMs: 30000 },
+      otelTrigger: { enabled: false, port: 4318 },
+    },
   };
 }
 
@@ -169,6 +185,7 @@ export function resolveConfig(
       ...base.capture,
       ...stripUndefined(override.capture),
       watch: { ...base.capture.watch, ...stripUndefined(override.capture?.watch) },
+      otelTrigger: { ...base.capture.otelTrigger, ...stripUndefined(override.capture?.otelTrigger) },
     },
   };
   if (override.storeDir && override.runtimeDir === undefined) {

@@ -1,0 +1,1046 @@
+{
+  "agent": "claude",
+  "sessionId": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+  "meta": {
+    "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+    "model": "<synthetic>",
+    "started_at": "2026-06-13T13:03:31.159Z"
+  },
+  "turns": [
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 0,
+      "ts": "2026-06-13T13:03:33.222Z",
+      "role": "user",
+      "text": "<redacted len=332>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 1,
+      "ts": "2026-06-13T13:03:37.446Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 6,
+        "output_tokens": 110,
+        "cache_read_tokens": 18426,
+        "cache_write_tokens": 13772
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.058841
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 2,
+      "ts": "2026-06-13T13:03:37.853Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Skill",
+          "input": {},
+          "id": "toolu_01WZh5RGFYYTtiL8q9Z8zWW5"
+        }
+      ],
+      "usage": {
+        "input_tokens": 6,
+        "output_tokens": 110,
+        "cache_read_tokens": 18426,
+        "cache_write_tokens": 13772
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.058841
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 3,
+      "ts": "2026-06-13T13:03:37.879Z",
+      "role": "tool",
+      "text": "<redacted len=29>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 4,
+      "ts": "2026-06-13T13:03:37.874Z",
+      "role": "user",
+      "text": "<redacted len=4722>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 5,
+      "ts": "2026-06-13T13:03:43.186Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 5,
+        "output_tokens": 484,
+        "cache_read_tokens": 32198,
+        "cache_write_tokens": 2016
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024494
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 6,
+      "ts": "2026-06-13T13:03:44.196Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Bash",
+          "input": {},
+          "id": "toolu_01JRyLgmjbpPtd1sFZd3QbUW"
+        }
+      ],
+      "usage": {
+        "input_tokens": 5,
+        "output_tokens": 484,
+        "cache_read_tokens": 32198,
+        "cache_write_tokens": 2016
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024494
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 7,
+      "ts": "2026-06-13T13:03:45.271Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Bash",
+          "input": {},
+          "id": "toolu_014DnYmHHofA5CpGJs3ppi3m"
+        }
+      ],
+      "usage": {
+        "input_tokens": 5,
+        "output_tokens": 484,
+        "cache_read_tokens": 32198,
+        "cache_write_tokens": 2016
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024494
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 8,
+      "ts": "2026-06-13T13:03:46.214Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Bash",
+          "input": {},
+          "id": "toolu_01GLBok1ezCXWa3uyK5zwigJ"
+        }
+      ],
+      "usage": {
+        "input_tokens": 5,
+        "output_tokens": 484,
+        "cache_read_tokens": 32198,
+        "cache_write_tokens": 2016
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024494
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 9,
+      "ts": "2026-06-13T13:03:46.925Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Bash",
+          "input": {},
+          "id": "toolu_01SCXSG2m9VBHVd2aAhoaTtt"
+        }
+      ],
+      "usage": {
+        "input_tokens": 5,
+        "output_tokens": 484,
+        "cache_read_tokens": 32198,
+        "cache_write_tokens": 2016
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024494
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 10,
+      "ts": "2026-06-13T13:03:47.484Z",
+      "role": "tool",
+      "text": "<redacted len=215>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 11,
+      "ts": "2026-06-13T13:03:48.275Z",
+      "role": "tool",
+      "text": "<redacted len=72>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 12,
+      "ts": "2026-06-13T13:03:49.207Z",
+      "role": "tool",
+      "text": "<redacted len=1259>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 13,
+      "ts": "2026-06-13T13:03:49.210Z",
+      "role": "tool",
+      "text": "<redacted len=10>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 14,
+      "ts": "2026-06-13T13:03:55.312Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Bash",
+          "input": {},
+          "id": "toolu_01Jh9dVzSkMtAkhdHkgbUybY"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 542,
+        "cache_read_tokens": 34214,
+        "cache_write_tokens": 2914
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.029325
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 15,
+      "ts": "2026-06-13T13:03:56.013Z",
+      "role": "tool",
+      "text": "<redacted len=1339>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 16,
+      "ts": "2026-06-13T13:03:56.291Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_011ShKKpWhw3udCTuSe7jLeN"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 542,
+        "cache_read_tokens": 34214,
+        "cache_write_tokens": 2914
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.029325
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 17,
+      "ts": "2026-06-13T13:03:56.306Z",
+      "role": "tool",
+      "text": "<redacted len=16808>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 18,
+      "ts": "2026-06-13T13:03:57.825Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_01K5dCnpiByzqvkSrZ8Vmkoa"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 542,
+        "cache_read_tokens": 34214,
+        "cache_write_tokens": 2914
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.029325
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 19,
+      "ts": "2026-06-13T13:03:57.833Z",
+      "role": "tool",
+      "text": "<redacted len=3662>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 20,
+      "ts": "2026-06-13T13:03:58.851Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_01RegTPrxtwx9Macno3vZqQf"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 542,
+        "cache_read_tokens": 34214,
+        "cache_write_tokens": 2914
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.029325
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 21,
+      "ts": "2026-06-13T13:03:58.854Z",
+      "role": "tool",
+      "text": "<redacted len=4179>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 22,
+      "ts": "2026-06-13T13:03:59.670Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_01BcUgRvYrxYoicQtAeSRGfd"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 542,
+        "cache_read_tokens": 34214,
+        "cache_write_tokens": 2914
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.029325
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 23,
+      "ts": "2026-06-13T13:03:59.676Z",
+      "role": "tool",
+      "text": "<redacted len=4876>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 24,
+      "ts": "2026-06-13T13:04:02.484Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 388,
+        "cache_read_tokens": 37128,
+        "cache_write_tokens": 12602
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.064219
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 25,
+      "ts": "2026-06-13T13:04:04.036Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_01BfUkwx4YWJa7oGap3dfeQb"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 388,
+        "cache_read_tokens": 37128,
+        "cache_write_tokens": 12602
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.064219
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 26,
+      "ts": "2026-06-13T13:04:04.042Z",
+      "role": "tool",
+      "text": "<redacted len=17307>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 27,
+      "ts": "2026-06-13T13:04:05.097Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Bash",
+          "input": {},
+          "id": "toolu_019PXtTdrCHqa9iDzhiPF69F"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 388,
+        "cache_read_tokens": 37128,
+        "cache_write_tokens": 12602
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.064219
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 28,
+      "ts": "2026-06-13T13:04:05.610Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_01URatqWoR9g9SaxVm7BsPg1"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 388,
+        "cache_read_tokens": 37128,
+        "cache_write_tokens": 12602
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.064219
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 29,
+      "ts": "2026-06-13T13:04:05.614Z",
+      "role": "tool",
+      "text": "<redacted len=3152>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 30,
+      "ts": "2026-06-13T13:04:05.842Z",
+      "role": "tool",
+      "text": "<redacted len=77>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 31,
+      "ts": "2026-06-13T13:04:11.097Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_01Pr2RzCJ8EcYfBPSAMVCUpd"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1292,
+        "output_tokens": 192,
+        "cache_read_tokens": 49730,
+        "cache_write_tokens": 6779
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.047096
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 32,
+      "ts": "2026-06-13T13:04:11.104Z",
+      "role": "tool",
+      "text": "<redacted len=2854>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 33,
+      "ts": "2026-06-13T13:04:11.564Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_01RBnhKE56HJpBdDkMSuqDKZ"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1292,
+        "output_tokens": 192,
+        "cache_read_tokens": 49730,
+        "cache_write_tokens": 6779
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.047096
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 34,
+      "ts": "2026-06-13T13:04:11.572Z",
+      "role": "tool",
+      "text": "<redacted len=7203>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 35,
+      "ts": "2026-06-13T13:15:16.816Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 410,
+        "cache_read_tokens": 61921,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024729
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 36,
+      "ts": "2026-06-13T13:15:18.472Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_013kP1AEgwXLtXbTZU1jGssR"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 410,
+        "cache_read_tokens": 61921,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024729
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 37,
+      "ts": "2026-06-13T13:15:18.500Z",
+      "role": "tool",
+      "text": "<redacted len=11769>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 38,
+      "ts": "2026-06-13T13:15:20.024Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "input": {},
+          "id": "toolu_01XwJVqppJp6xmjZnLgoNwmx"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 410,
+        "cache_read_tokens": 61921,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024729
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 39,
+      "ts": "2026-06-13T13:15:20.034Z",
+      "role": "tool",
+      "text": "<redacted len=9630>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 40,
+      "ts": "2026-06-13T13:15:20.632Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "Bash",
+          "input": {},
+          "id": "toolu_0181z3p1V1ZpSHVYccyoBzJB"
+        }
+      ],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 410,
+        "cache_read_tokens": 61921,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.024729
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 41,
+      "ts": "2026-06-13T13:15:21.391Z",
+      "role": "tool",
+      "text": "<redacted len=1244>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 42,
+      "ts": "2026-06-13T13:15:51.779Z",
+      "role": "assistant",
+      "text": "",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 50,
+        "cache_read_tokens": 61921,
+        "cache_write_tokens": 8197
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.050068
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 43,
+      "ts": "2026-06-13T13:15:52.287Z",
+      "role": "assistant",
+      "text": "<redacted len=73>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 50,
+        "cache_read_tokens": 61921,
+        "cache_write_tokens": 8197
+      },
+      "scrubbed": false,
+      "raw_ref": null,
+      "telemetry": {
+        "cost_usd": 0.050068
+      }
+    },
+    {
+      "schema": "session-store/turn@1",
+      "session_id": "00f0712c-44d7-4e5c-b2ae-14c1bf1c5c12",
+      "host": "fixture-host",
+      "agent": "claude-code",
+      "turn_index": 44,
+      "ts": "2026-06-13T13:40:42.117Z",
+      "role": "assistant",
+      "text": "<redacted len=134>",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0
+      },
+      "scrubbed": false,
+      "raw_ref": null
+    }
+  ]
+}

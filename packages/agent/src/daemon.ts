@@ -8,6 +8,7 @@ import { StateStore } from './state';
 import { GitStore } from './store/git';
 import { readEntries } from './store/scan';
 import { SourceWatcher, type ScanResult } from './watcher';
+import { OtelReceiver } from './telemetry/receiver';
 
 export type SessionEndHook = (sessionId: string, sessionDir: string) => void | Promise<void>;
 
@@ -19,6 +20,8 @@ export interface DaemonDeps {
   onSessionEnd?: SessionEndHook;
   /** poll-based capture for hookless agents (codex/grok); auto-created from config when omitted */
   watcher?: SourceWatcher;
+  /** OTLP-trigger receiver (agent telemetry → capture); auto-created from config when omitted */
+  receiver?: OtelReceiver;
 }
 
 export interface DaemonStatus {
@@ -63,6 +66,8 @@ export class Daemon {
   private readonly git?: GitStore;
   private readonly onSessionEnd?: SessionEndHook;
   private watcher?: SourceWatcher;
+  private receiver?: OtelReceiver;
+  private readonly triggerTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   private dirty = false;
   private pendingTurns = 0;
@@ -87,6 +92,7 @@ export class Daemon {
     }
     if (deps.onSessionEnd) this.onSessionEnd = deps.onSessionEnd;
     if (deps.watcher) this.watcher = deps.watcher;
+    if (deps.receiver) this.receiver = deps.receiver;
   }
 
   async start(): Promise<void> {
@@ -111,6 +117,22 @@ export class Daemon {
       if (w.enabled) this.watcher = w;
     }
     this.watcher?.start((r) => this.onWatcherImported(r));
+
+    // OTLP-trigger receiver: an agent's own telemetry export drives capture.
+    // Auto-create from config unless injected; resilient — a port clash logs and
+    // leaves the daemon running on hooks/watch alone.
+    if (!this.receiver && this.cfg.capture.otelTrigger.enabled) {
+      this.receiver = new OtelReceiver(this.cfg.capture.otelTrigger, {
+        onTrigger: (sessionId) => this.handleTrigger(sessionId),
+      });
+    }
+    if (this.receiver) {
+      try {
+        await this.receiver.start();
+      } catch {
+        this.receiver = undefined; // port unavailable — degrade gracefully
+      }
+    }
   }
 
   /** A watcher scan imported sessions into the store — mark dirty and schedule a commit. */
@@ -119,6 +141,47 @@ export class Daemon {
     this.pendingTurns += r.turns;
     this.stats.turns += r.turns;
     this.scheduleFlush();
+  }
+
+  /**
+   * An agent's OTLP export named a session — capture it from the transcript (Claude)
+   * or via the source watcher (codex/grok), then debounce a labels+export pass so a
+   * burst of metric exports yields one GenAI-semconv emission per quiet period.
+   */
+  async handleTrigger(sessionId: string): Promise<void> {
+    const transcript = findTranscript(this.cfg.claudeProjectsDir, sessionId);
+    if (transcript) {
+      const res = this.capture.captureSession(sessionId, transcript);
+      this.sessions.add(sessionId);
+      if (res.newTurns > 0 || res.writtenPaths.length > 0) {
+        this.dirty = true;
+        this.pendingTurns += res.newTurns;
+        this.stats.turns += res.newTurns;
+      }
+      this.debounceSessionEnd(sessionId, res.sessionDir);
+    } else if (this.watcher) {
+      this.onWatcherImported(this.watcher.scanOnce());
+    }
+    this.scheduleFlush();
+  }
+
+  /** Coalesce trigger bursts: run onSessionEnd (labels + export) once after a quiet gap. */
+  private debounceSessionEnd(sessionId: string, sessionDir: string): void {
+    if (!this.onSessionEnd) return;
+    const prev = this.triggerTimers.get(sessionId);
+    if (prev) clearTimeout(prev);
+    const timer = setTimeout(async () => {
+      this.triggerTimers.delete(sessionId);
+      try {
+        await this.onSessionEnd!(sessionId, sessionDir);
+        this.dirty = true;
+        this.flush(`otel-trigger ${sessionId}`);
+      } catch {
+        /* labeler/exporter already resilient */
+      }
+    }, 1500);
+    timer.unref?.();
+    this.triggerTimers.set(sessionId, timer);
   }
 
   private onConnection(sock: Socket): void {
@@ -217,6 +280,10 @@ export class Daemon {
 
   async stop(): Promise<void> {
     this.watcher?.stop();
+    await this.receiver?.stop();
+    this.receiver = undefined;
+    for (const t of this.triggerTimers.values()) clearTimeout(t);
+    this.triggerTimers.clear();
     if (this.commitTimer) {
       clearTimeout(this.commitTimer);
       this.commitTimer = undefined;

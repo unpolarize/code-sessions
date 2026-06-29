@@ -64,7 +64,7 @@ describe('exportSession', () => {
     await withTempDirAsync(async (store) => {
       const dir = seed(store);
       await withCollector(async (endpoint, paths) => {
-        const cfg = makeConfig(store, { telemetry: { enabled: true, endpoint } });
+        const cfg = makeConfig(store, { telemetry: { enabled: true, endpoint, emitMetrics: true } });
         const res = await exportSession(cfg, dir);
         expect(res.ok).toBe(true);
         expect(paths.sort()).toEqual(['/v1/metrics', '/v1/traces']);
@@ -107,7 +107,7 @@ describe('exportSession attribution', () => {
       const port = (server.address() as AddressInfo).port;
       try {
         const cfg = makeConfig(store, {
-          telemetry: { enabled: true, endpoint: `http://127.0.0.1:${port}` },
+          telemetry: { enabled: true, endpoint: `http://127.0.0.1:${port}`, emitMetrics: true },
           attribution: { enduser: 'svc', custom: { 'cost.center': 'payments' } },
         });
         const res = await exportSession(cfg, dir);
@@ -115,6 +115,7 @@ describe('exportSession attribution', () => {
         expect(bodies['/v1/traces']).toContain('enduser.id');
         expect(bodies['/v1/traces']).toContain('svc');
         expect(bodies['/v1/traces']).toContain('cost.center');
+        expect(bodies['/v1/traces']).toContain('invoke_agent'); // GenAI-semconv turn-trace model
         expect(bodies['/v1/metrics']).toContain('payments'); // association properties on metric data points too
       } finally {
         await new Promise<void>((r) => (server as Server).close(() => r()));
