@@ -78,6 +78,24 @@ function seedCodex(root: string): void {
 }
 
 describe('codex adapter', () => {
+  it('reads the model from turn_context when session_meta omits it (codex 0.14x+)', () => {
+    withTempDir((root) => {
+      const dir = join(root, '2026', '06', '29');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, 'rollout-2026-06-29T14-00-00-22222222-3333-4444-5555-666666666666.jsonl'),
+        [
+          '{"timestamp":"2026-06-29T14:00:00Z","type":"session_meta","payload":{"id":"22222222-3333-4444-5555-666666666666","timestamp":"2026-06-29T14:00:00Z","cwd":"/p","model_provider":"openai"}}',
+          '{"timestamp":"2026-06-29T14:00:01Z","type":"turn_context","payload":{"cwd":"/p","model":"gpt-5.5"}}',
+          '{"timestamp":"2026-06-29T14:00:02Z","type":"event_msg","payload":{"type":"user_message","message":"hi"}}',
+          '{"timestamp":"2026-06-29T14:00:03Z","type":"event_msg","payload":{"type":"agent_message","message":"yo"}}',
+        ].join('\n'),
+      );
+      const imported = parseCodexSession(discoverCodexSessions(root)[0]!, 'h')!;
+      expect(imported.meta.model).toBe('gpt-5.5');
+    });
+  });
+
   it('discovers and parses a codex rollout into canonical turns', () => {
     withTempDir((root) => {
       seedCodex(root);

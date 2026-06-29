@@ -175,8 +175,10 @@ export function parseCodexSession(info: CodexSessionInfo, host: string): Importe
       if (typeof t === 'string' && !Number.isNaN(Date.parse(t))) baseTs = t;
       continue;
     }
-    if (ev?.type === 'turn_context' && typeof ev.payload?.cwd === 'string' && !cwd) {
-      cwd = ev.payload.cwd;
+    // turn_context carries cwd + (in codex 0.14x+) the model, which moved out of session_meta.
+    if (ev?.type === 'turn_context' && ev.payload && typeof ev.payload === 'object') {
+      if (typeof ev.payload.cwd === 'string' && !cwd) cwd = ev.payload.cwd;
+      if (typeof ev.payload.model === 'string' && !model) model = ev.payload.model;
     }
 
     const usage = readTokenCount(ev);
