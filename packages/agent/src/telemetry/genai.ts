@@ -73,6 +73,19 @@ export function buildTurnTraces(
     const last = group[group.length - 1]!;
     // the conversational turn's category: first categorized record in the group
     const turnCat = group.map((t) => turnCategories?.get(t.turn_index)).find(Boolean);
+    // turn cost = Σ assistant-record cost in this group (chat spans carry the same value)
+    const turnCost = Math.round(group.reduce((s, t) => s + (t.telemetry?.cost_usd ?? 0), 0) * 1e6) / 1e6;
+
+    // Consolidated `metadata` JSON bag on the turn-root span. Some backends
+    // (e.g. Galileo) populate their groupable `user_metadata` column ONLY from a
+    // single span attribute literally named `metadata`, not from the flat
+    // semconv attributes. Emit both so attribution survives either ingest path.
+    const metaBag: Record<string, string> = {
+      ...enrich,
+      'gen_ai.system': session.agent,
+      'code_sessions.cost_usd': String(turnCost),
+      ...(turnCat ? { 'code_sessions.turn.category': turnCat } : {}),
+    };
 
     spans.push({
       traceId,
@@ -84,11 +97,14 @@ export function buildTurnTraces(
       attributes: [
         attr('gen_ai.operation.name', 'invoke_agent'),
         attr('gen_ai.agent.name', session.agent),
+        attr('gen_ai.system', session.agent),
         attr('gen_ai.provider.name', provider),
         attr('gen_ai.conversation.id', session.session_id),
         attr('code_sessions.turn.index', g),
+        attr('code_sessions.cost_usd', turnCost),
         ...(turnCat ? [attr('code_sessions.turn.category', turnCat)] : []),
         ...enrichAttrs,
+        attr('metadata', JSON.stringify(metaBag)),
         ...(emitContent && first.role === 'user' && first.text
           ? [attr('gen_ai.input.messages', capContent(first.text))]
           : []),

@@ -122,6 +122,23 @@ describe('buildTurnTraces — turn = trace, invocation = span', () => {
     expect(sv(root, 'gen_ai.conversation.intent')).toBe('feature');
   });
 
+  it('emits a consolidated `metadata` JSON bag on the root span (Galileo user_metadata)', () => {
+    const p = buildTurnTraces(envelope(), TURNS, 'code-sessions', ATTR) as any;
+    const roots = allSpans(p).filter((s: any) => sv(s, 'gen_ai.operation.name') === 'invoke_agent');
+    for (const root of roots) {
+      const bag = JSON.parse(sv(root, 'metadata'));
+      expect(bag['enduser.id']).toBe('dev@a.com');
+      expect(bag['code.repository']).toBe('acme/app');
+      expect(bag['gen_ai.conversation.intent']).toBe('feature');
+      expect(bag['gen_ai.system']).toBe('claude-code');
+      // cost is per-turn; both turns have one assistant record with a cost
+      expect(Number(bag['code_sessions.cost_usd'])).toBeGreaterThan(0);
+    }
+    // first turn's assistant cost 0.02, second 0.01 → bags differ
+    const costs = roots.map((r: any) => Number(JSON.parse(sv(r, 'metadata'))['code_sessions.cost_usd']));
+    expect(costs.sort()).toEqual([0.01, 0.02]);
+  });
+
   it('uses deterministic, idempotent ids (re-export is stable)', () => {
     const a = buildTurnTraces(envelope(), TURNS, 'code-sessions', ATTR) as any;
     const b = buildTurnTraces(envelope(), TURNS, 'code-sessions', ATTR) as any;
