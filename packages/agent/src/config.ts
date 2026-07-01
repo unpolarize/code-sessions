@@ -81,6 +81,8 @@ export interface CodeSessionsConfig {
     tracesPath?: string;
     /** override the metric path appended to `endpoint` (default `/v1/metrics`) */
     metricsPath?: string;
+    /** override the logs path appended to `endpoint` (default `/v1/logs`) for real-time hook events */
+    logsPath?: string;
     /** extra HTTP headers sent on every export (auth / tenancy / routing) */
     headers?: Record<string, string>;
     /** emit first-prompt / last-reply (and per-turn) text as span content. Off by

@@ -9,7 +9,8 @@ import { StateStore } from './state';
 import { GitStore } from './store/git';
 import { listSessionDirs, readEntries } from './store/scan';
 import { installHooks } from './hooks/install';
-import { exportSession, exportStore } from './telemetry/exporter';
+import { exportHookLog, exportSession, exportStore } from './telemetry/exporter';
+import type { HookEvent } from './ipc';
 import { discoverGrokSessions, parseGrokSession } from './adapters/grok';
 import { discoverCodexSessions, parseCodexSession } from './adapters/codex';
 import { discoverCodebuildSessions, parseCodebuildSession } from './adapters/codebuild';
@@ -365,6 +366,8 @@ export async function startDaemon(cfg: CodeSessionsConfig): Promise<Daemon> {
               await exportSession(cfg, sessionDir);
             }
           },
+          // Real-time OTel log per hook arrival (fire-and-forget; resilient).
+          ...(wantTelemetry ? { onHookEvent: (evt: HookEvent) => void exportHookLog(cfg, evt) } : {}),
         }
       : {};
   const daemon = new Daemon(cfg, deps);

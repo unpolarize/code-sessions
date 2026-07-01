@@ -18,6 +18,8 @@ export interface DaemonDeps {
   git?: GitStore;
   /** invoked on Stop/SubagentStop — the insights labeler hooks in here */
   onSessionEnd?: SessionEndHook;
+  /** invoked on EVERY hook arrival (fire-and-forget) — real-time OTel log emission */
+  onHookEvent?: (evt: HookEvent) => void | Promise<void>;
   /** poll-based capture for hookless agents (codex/grok); auto-created from config when omitted */
   watcher?: SourceWatcher;
   /** OTLP-trigger receiver (agent telemetry → capture); auto-created from config when omitted */
@@ -65,6 +67,7 @@ export class Daemon {
   private readonly state: StateStore;
   private readonly git?: GitStore;
   private readonly onSessionEnd?: SessionEndHook;
+  private readonly onHookEvent?: (evt: HookEvent) => void | Promise<void>;
   private watcher?: SourceWatcher;
   private receiver?: OtelReceiver;
   private readonly triggerTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -91,6 +94,7 @@ export class Daemon {
         });
     }
     if (deps.onSessionEnd) this.onSessionEnd = deps.onSessionEnd;
+    if (deps.onHookEvent) this.onHookEvent = deps.onHookEvent;
     if (deps.watcher) this.watcher = deps.watcher;
     if (deps.receiver) this.receiver = deps.receiver;
   }
@@ -211,6 +215,9 @@ export class Daemon {
   /** Process a single hook event: capture, then decide whether to flush a commit. */
   async handleEvent(evt: HookEvent): Promise<HookAck> {
     this.stats.events++;
+    // Real-time OTel log emission, fire-and-forget BEFORE the (slower) file capture,
+    // so the signal lands even for tool-use events that carry no new transcript turns.
+    if (this.onHookEvent) void this.onHookEvent(evt);
     const transcript =
       evt.transcript_path && existsSync(evt.transcript_path)
         ? evt.transcript_path

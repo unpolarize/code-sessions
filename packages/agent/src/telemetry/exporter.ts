@@ -12,6 +12,27 @@ import { readTurns } from '../store/writer';
 import { sessionAttribution } from './attribution';
 import { postOtlp, type PostResult } from './otlp';
 import { buildGenaiMetrics, buildTurnTraces } from './genai';
+import { buildHookLogPayload } from './logs';
+import type { HookEvent } from '../ipc';
+
+/**
+ * Emit a real-time OTel log record for a single lifecycle hook event. Best-effort
+ * and fast: short timeout, never throws — so it can run on the hook-ack path without
+ * violating the daemon's non-blocking contract.
+ */
+export async function exportHookLog(
+  cfg: CodeSessionsConfig,
+  evt: HookEvent,
+  nowMs: number = Date.now(),
+): Promise<void> {
+  if (!cfg.telemetry.enabled) return;
+  const { endpoint, serviceName, logsPath, headers } = cfg.telemetry;
+  const payload = buildHookLogPayload(evt, serviceName, cfg.host, nowMs, {
+    agent: cfg.agent,
+    emitContent: cfg.telemetry.emitContent === true,
+  });
+  await postOtlp(endpoint, logsPath ?? '/v1/logs', payload, 500, headers ?? {});
+}
 
 export interface SessionExportResult {
   ok: boolean;

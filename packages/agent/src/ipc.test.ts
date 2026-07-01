@@ -19,6 +19,30 @@ describe('parseHookEvent', () => {
     expect(e?.transcript_path).toBe('/t');
   });
 
+  it('normalizes tool fields from Claude (snake_case) payloads', () => {
+    const e = parseHookEvent({
+      hook_event_name: 'PostToolUse',
+      session_id: 's',
+      tool_name: 'Edit',
+      tool_input: { file_path: 'a.ts' },
+      tool_use_id: 'tc1',
+    });
+    expect(e).toMatchObject({ event: 'PostToolUse', tool_name: 'Edit', tool_use_id: 'tc1' });
+    expect(e?.tool_input).toEqual({ file_path: 'a.ts' });
+  });
+
+  it('normalizes tool fields from Grok (camelCase) payloads', () => {
+    const e = parseHookEvent({
+      hookEventName: 'PreToolUse',
+      sessionId: 's',
+      toolName: 'read_file',
+      toolInput: { path: 'a.ts' },
+      toolUseId: 'g1',
+    });
+    expect(e).toMatchObject({ event: 'PreToolUse', tool_name: 'read_file', tool_use_id: 'g1' });
+    expect(e?.tool_input).toEqual({ path: 'a.ts' });
+  });
+
   it('rejects payloads missing event or session id', () => {
     expect(parseHookEvent({ event: 'Stop' })).toBeNull();
     expect(parseHookEvent({ session_id: 's' })).toBeNull();

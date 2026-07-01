@@ -81,6 +81,13 @@ full emitted-attribute reference.
    - **Metrics — optional** (`telemetry.emitMetrics`, off by default): `gen_ai.client.token.usage`
      (Sum, one point per `chat` × token type) + `code_sessions.cost_usd` (Sum). `host.name` on the
      OTLP resource.
+   - **Real-time logs** (`telemetry/logs.ts` → `/v1/logs`) — the daemon emits one OTel **log record**
+     the instant each lifecycle hook arrives, *before* file capture and independent of the batch
+     trace/metric export: `code_sessions.session.{start,end}`, `code_sessions.turn.prompt`,
+     `code_sessions.tool.{decision,result}` (PreToolUse/PostToolUse, carrying `gen_ai.tool.name`/`.call.id`),
+     `code_sessions.subagent.stop`. Fire-and-forget (500 ms timeout), so it never blocks the hook.
+     Hook payloads are normalized for both Claude (snake_case) and Grok (camelCase) shapes in `ipc.ts`.
+     Override the route with `telemetry.logsPath`.
 
 ---
 

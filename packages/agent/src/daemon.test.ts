@@ -150,6 +150,21 @@ describe('Daemon source watcher', () => {
   });
 });
 
+describe('Daemon real-time hook log', () => {
+  it('emits onHookEvent for every hook, even a tool event with no transcript', async () => {
+    await withTempDirAsync(async (root) => {
+      const seen: string[] = [];
+      const d = new Daemon(makeConfig(join(root, 'store')), {
+        onHookEvent: (evt) => void seen.push(`${evt.event}:${evt.session_id}:${evt.tool_name ?? ''}`),
+      });
+      await d.start();
+      await d.handleEvent({ event: 'PostToolUse', session_id: 'sX', tool_name: 'Edit' }); // no transcript
+      await d.stop();
+      expect(seen).toContain('PostToolUse:sX:Edit');
+    });
+  });
+});
+
 describe('Daemon OTLP trigger', () => {
   it('captures a claude session when handleTrigger fires (agent telemetry → capture)', async () => {
     await withTempDirAsync(async (root) => {

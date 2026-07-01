@@ -10,6 +10,7 @@ import { dirname } from 'node:path';
 export const DEFAULT_HOOK_EVENTS = [
   'SessionStart',
   'UserPromptSubmit',
+  'PreToolUse',
   'PostToolUse',
   'Stop',
   'SubagentStop',

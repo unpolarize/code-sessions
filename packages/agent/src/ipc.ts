@@ -6,6 +6,12 @@ export interface HookEvent {
   session_id: string;
   transcript_path?: string;
   cwd?: string;
+  /** Pre/PostToolUse: the tool name (Claude `tool_name`, Grok `toolName`). */
+  tool_name?: string;
+  /** Pre/PostToolUse: the tool input/args (may be gated out of telemetry). */
+  tool_input?: unknown;
+  /** Pre/PostToolUse: correlation id for the tool call. */
+  tool_use_id?: string;
 }
 
 export interface HookAck {
@@ -32,6 +38,13 @@ export function parseHookEvent(raw: unknown): HookEvent | null {
   const tp = (r.transcript_path ?? r.transcriptPath) as string | undefined;
   if (typeof tp === 'string') out.transcript_path = tp;
   if (typeof r.cwd === 'string') out.cwd = r.cwd;
+  // Pre/PostToolUse tool fields — Claude snake_case, Grok camelCase.
+  const toolName = (r.tool_name ?? r.toolName) as string | undefined;
+  if (typeof toolName === 'string') out.tool_name = toolName;
+  const toolInput = r.tool_input ?? r.toolInput;
+  if (toolInput !== undefined) out.tool_input = toolInput;
+  const toolUseId = (r.tool_use_id ?? r.toolUseId) as string | undefined;
+  if (typeof toolUseId === 'string') out.tool_use_id = toolUseId;
   return out;
 }
 
