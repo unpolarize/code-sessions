@@ -2,7 +2,20 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { withTempDir } from '../test/tmp';
-import { DEFAULT_HOOK_EVENTS, installHooks, mergeHooks } from './install';
+import { DEFAULT_HOOK_EVENTS, installGrokHooks, installHooks, mergeHooks } from './install';
+
+describe('installGrokHooks', () => {
+  it('writes ~/.grok/hooks/code-sessions.json (Claude-style doc) with our command, idempotently', () => {
+    withTempDir((home) => {
+      const r1 = installGrokHooks('code-sessions hook', { home });
+      expect(r1.settingsPath).toBe(join(home, '.grok', 'hooks', 'code-sessions.json'));
+      expect(r1.added).toEqual([...DEFAULT_HOOK_EVENTS]);
+      const doc = JSON.parse(readFileSync(r1.settingsPath, 'utf8'));
+      expect(doc.hooks.PostToolUse[0].hooks[0].command).toBe('code-sessions hook');
+      expect(installGrokHooks('code-sessions hook', { home }).added).toEqual([]); // idempotent
+    });
+  });
+});
 
 describe('mergeHooks', () => {
   it('adds our command to each event without clobbering existing hooks', () => {

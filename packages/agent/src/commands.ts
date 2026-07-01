@@ -8,7 +8,7 @@ import { labelSession, makeProvider, makeTurnClassifier, reindexStore } from './
 import { StateStore } from './state';
 import { GitStore } from './store/git';
 import { listSessionDirs, readEntries } from './store/scan';
-import { installHooks } from './hooks/install';
+import { installHooks, installGrokHooks } from './hooks/install';
 import { exportHookLog, exportSession, exportStore } from './telemetry/exporter';
 import type { HookEvent } from './ipc';
 import { discoverGrokSessions, parseGrokSession } from './adapters/grok';
@@ -188,11 +188,22 @@ export async function cmdReindex(
 
 export function cmdInstallHooks(
   cfg: CodeSessionsConfig,
-  opts: { settingsPath?: string; command?: string } = {},
+  opts: { settingsPath?: string; command?: string; agent?: 'claude' | 'grok' } = {},
 ): CommandResult {
+  const command = opts.command ?? 'code-sessions hook';
+  // Grok reads ~/.grok/hooks/*.json (Claude-style, always-trusted) — verified firing live.
+  if (opts.agent === 'grok') {
+    const res = installGrokHooks(command, opts.settingsPath ? { path: opts.settingsPath } : {});
+    return {
+      code: 0,
+      output:
+        res.added.length > 0
+          ? `Installed Grok hooks (${res.added.join(', ')}) → ${res.settingsPath}`
+          : `Grok hooks already present → ${res.settingsPath}`,
+    };
+  }
   const home = cfg.claudeProjectsDir.replace(/\/projects\/?$/, '');
   const settingsPath = opts.settingsPath ?? join(home, 'settings.json');
-  const command = opts.command ?? 'code-sessions hook';
   const res = installHooks(settingsPath, command);
   return {
     code: 0,

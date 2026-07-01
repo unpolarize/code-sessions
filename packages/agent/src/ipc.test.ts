@@ -31,6 +31,21 @@ describe('parseHookEvent', () => {
     expect(e?.tool_input).toEqual({ file_path: 'a.ts' });
   });
 
+  it('canonicalizes Grok snake_case event names to PascalCase (real payload)', () => {
+    // Verified against a live grok run: hookEventName values are snake_case.
+    expect(parseHookEvent({ hookEventName: 'post_tool_use', sessionId: 's', toolName: 'read_file' })?.event).toBe('PostToolUse');
+    expect(parseHookEvent({ hookEventName: 'session_start', sessionId: 's' })?.event).toBe('SessionStart');
+    expect(parseHookEvent({ hookEventName: 'stop', sessionId: 's' })?.event).toBe('Stop');
+    expect(parseHookEvent({ hookEventName: 'session_end', sessionId: 's' })?.event).toBe('SessionEnd');
+    // Claude/Codex PascalCase passes through unchanged
+    expect(parseHookEvent({ hook_event_name: 'PostToolUse', session_id: 's' })?.event).toBe('PostToolUse');
+  });
+
+  it('canonicalized Grok events flow through isSessionEndEvent', () => {
+    const stop = parseHookEvent({ hookEventName: 'stop', sessionId: 's' })!;
+    expect(isSessionEndEvent(stop.event)).toBe(true);
+  });
+
   it('normalizes tool fields from Grok (camelCase) payloads', () => {
     const e = parseHookEvent({
       hookEventName: 'PreToolUse',

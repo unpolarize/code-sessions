@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 /**
  * Install code-sessions hook shims into Claude Code settings.json. Each event
@@ -79,4 +80,21 @@ export function installHooks(
   mkdirSync(dirname(settingsPath), { recursive: true });
   writeFileSync(settingsPath, `${JSON.stringify(merged, null, 2)}\n`);
   return { settingsPath, command, added };
+}
+
+/** Grok reads `~/.grok/hooks/*.json` (Claude-style, always-trusted) — verified firing live. */
+export function grokHooksPath(home = homedir()): string {
+  return join(home, '.grok', 'hooks', 'code-sessions.json');
+}
+
+/**
+ * Install code-sessions hooks for Grok. Grok's global hooks dir uses the exact same
+ * `{ hooks: { <Event>: [{ hooks: [{ type, command }] }] } }` document as Claude
+ * settings.json, so we reuse the same merge/write. Idempotent.
+ */
+export function installGrokHooks(
+  command: string,
+  opts: { path?: string; events?: readonly string[]; home?: string } = {},
+): InstallResult {
+  return installHooks(opts.path ?? grokHooksPath(opts.home), command, opts.events ?? DEFAULT_HOOK_EVENTS);
 }

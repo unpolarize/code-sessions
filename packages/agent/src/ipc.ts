@@ -27,11 +27,27 @@ export function isSessionEndEvent(event: string): boolean {
   return LIFECYCLE_END.has(event);
 }
 
-/** Normalize a raw payload (from a socket line or a Claude hook stdin doc) into a HookEvent. */
+/**
+ * Canonicalize a hook event name to PascalCase. Claude/Codex already send PascalCase
+ * (`PostToolUse`); Grok sends snake_case (`post_tool_use`, `stop`) — verified against a
+ * live grok run. Normalizing here lets `isSessionEndEvent` / the log-event mapping treat
+ * all three agents uniformly.
+ */
+export function canonicalHookEvent(event: string): string {
+  if (/[A-Z]/.test(event)) return event; // already PascalCase
+  return event
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase() + w.slice(1))
+    .join('');
+}
+
+/** Normalize a raw payload (from a socket line or a Claude/Codex/Grok hook stdin doc) into a HookEvent. */
 export function parseHookEvent(raw: unknown): HookEvent | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
-  const event = (r.event ?? r.hook_event_name ?? r.hookEventName) as string | undefined;
+  const rawEvent = (r.event ?? r.hook_event_name ?? r.hookEventName) as string | undefined;
+  const event = rawEvent ? canonicalHookEvent(rawEvent) : undefined;
   const session_id = (r.session_id ?? r.sessionId) as string | undefined;
   if (!event || !session_id) return null;
   const out: HookEvent = { event, session_id };
