@@ -69,17 +69,14 @@ describe('Daemon', () => {
       const socketPath = join(root, 'd.sock');
       const d = new Daemon(makeConfig(store, { socketPath, batch: { maxTurns: 1 } }));
       await d.start();
-      try {
-        const ack = await sendEvent(socketPath, {
-          event: 'PostToolUse',
-          session_id: 'sess-1',
-          transcript_path: transcript,
-        });
-        expect(ack.ok).toBe(true);
-        expect(ack.newTurns).toBe(2);
-      } finally {
-        await d.stop();
-      }
+      const ack = await sendEvent(socketPath, {
+        event: 'PostToolUse',
+        session_id: 'sess-1',
+        transcript_path: transcript,
+      });
+      expect(ack.ok).toBe(true); // fast ack; capture runs async on the background queue
+      await d.stop(); // drains the queue → capture completes
+      expect(existsSync(turnFile(sessionDir(store, 'test-host', '2026-06', 'sess-1'), 0))).toBe(true);
     });
   });
 
@@ -146,6 +143,32 @@ describe('Daemon source watcher', () => {
       const sdir = sessionDir(store, 'test-host', '2026-06', id);
       expect(existsSync(turnFile(sdir, 0))).toBe(true);
       expect(gitLogCount(store)).toBeGreaterThanOrEqual(1);
+    });
+  });
+});
+
+describe('Daemon non-blocking hook ack', () => {
+  it('acks a hook fast even when onSessionEnd (labeling/export) is slow — never blocks the chat', async () => {
+    await withTempDirAsync(async (root) => {
+      const store = join(root, 'store');
+      const transcript = writeTranscript(join(root, 'projects', 'enc'));
+      const cfg = makeConfig(store, { claudeProjectsDir: join(root, 'projects') });
+      let sessionEndRan = false;
+      const d = new Daemon(cfg, {
+        onSessionEnd: async () => {
+          await new Promise((r) => setTimeout(r, 400)); // simulate ollama labeling + OTLP export
+          sessionEndRan = true;
+        },
+      });
+      await d.start();
+      const t0 = Date.now();
+      const ack = await sendEvent(cfg.socketPath, { event: 'Stop', session_id: 'sess-1', transcript_path: transcript });
+      const dt = Date.now() - t0;
+      expect(ack.ok).toBe(true);
+      expect(dt).toBeLessThan(150); // fast ack — NOT blocked by the 400ms onSessionEnd
+      await d.stop(); // drains deferred work
+      expect(sessionEndRan).toBe(true); // the slow work still ran, just off the ack path
+      expect(existsSync(turnFile(sessionDir(store, 'test-host', '2026-06', 'sess-1'), 0))).toBe(true);
     });
   });
 });

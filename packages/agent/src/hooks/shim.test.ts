@@ -32,8 +32,7 @@ describe('handleHookInput', () => {
           transcript_path: transcript,
         });
         const ack = await handleHookInput(socketPath, payload);
-        expect(ack.ok).toBe(true);
-        expect(ack.newTurns).toBe(1);
+        expect(ack.ok).toBe(true); // fast ack; the daemon captures async off the ack path
       } finally {
         await d.stop();
       }

@@ -37,25 +37,14 @@ describe('e2e: live capture pipeline (socket + insights on Stop)', () => {
       });
       const daemon = await startDaemon(cfg);
       try {
-        const a1 = await sendEvent(cfg.socketPath, {
-          event: 'PostToolUse',
-          session_id: 'e2e',
-          transcript_path: transcript,
-        });
-        expect(a1.ok).toBe(true);
-        expect(a1.newTurns).toBe(2);
-
+        // Socket acks are fast + decoupled from capture (which runs async on the daemon's
+        // work queue) — so we just confirm the ack, then verify the pipeline after stop()
+        // drains the queue. Sequenced sends keep the append-between ordering deterministic.
+        expect((await sendEvent(cfg.socketPath, { event: 'PostToolUse', session_id: 'e2e', transcript_path: transcript })).ok).toBe(true);
         appendFileSync(transcript, `${DONE}\n`);
-        const a2 = await sendEvent(cfg.socketPath, {
-          event: 'Stop',
-          session_id: 'e2e',
-          transcript_path: transcript,
-        });
-        expect(a2.ok).toBe(true);
-        expect(a2.newTurns).toBe(1);
-        expect(a2.flushed).toBe(true);
+        expect((await sendEvent(cfg.socketPath, { event: 'Stop', session_id: 'e2e', transcript_path: transcript })).ok).toBe(true);
       } finally {
-        await daemon.stop();
+        await daemon.stop(); // drains the work queue → capture + insights + commit complete
       }
 
       const dir = sessionDir(store, cfg.host, '2026-06', 'e2e');

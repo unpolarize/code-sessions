@@ -71,6 +71,8 @@ export class Daemon {
   private watcher?: SourceWatcher;
   private receiver?: OtelReceiver;
   private readonly triggerTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Serial background queue for hook processing, so the socket ack is never blocked. */
+  private workQueue: Promise<unknown> = Promise.resolve();
 
   private dirty = false;
   private pendingTurns = 0;
@@ -197,14 +199,19 @@ export class Daemon {
         const line = buf.slice(0, nl);
         buf = buf.slice(nl + 1);
         if (!line.trim()) continue;
-        let ack: HookAck;
+        // Ack IMMEDIATELY, then process the event on a serial background queue. The hook
+        // shim (and therefore the agent's chat turn) must never wait on capture / ollama
+        // labeling / OTLP export / git — those run off the ack path. Serialized so the
+        // ~6 hooks/turn don't race on the store / git.
+        let evt: HookEvent | null = null;
         try {
-          const evt = parseHookEvent(JSON.parse(line));
-          ack = evt ? await this.handleEvent(evt) : { ok: false, error: 'invalid event' };
+          evt = parseHookEvent(JSON.parse(line));
         } catch {
-          ack = { ok: false, error: 'parse error' };
+          /* malformed line */
         }
+        const ack: HookAck = evt ? { ok: true } : { ok: false, error: 'invalid event' };
         if (!sock.destroyed) sock.write(`${JSON.stringify(ack)}\n`);
+        if (evt) this.workQueue = this.workQueue.then(() => this.handleEvent(evt!)).catch(() => {});
       }
     });
     sock.on('error', () => {
@@ -295,6 +302,7 @@ export class Daemon {
       clearTimeout(this.commitTimer);
       this.commitTimer = undefined;
     }
+    await this.workQueue; // drain any queued hook processing before the final flush
     this.flush('daemon shutdown');
     if (this.server) {
       await new Promise<void>((resolve) => this.server!.close(() => resolve()));
