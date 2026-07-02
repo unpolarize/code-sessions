@@ -82,6 +82,18 @@ describe('SourceWatcher', () => {
     });
   });
 
+  it('skips agents in hookedAgents (poller yields to hooks)', () => {
+    withTempDir((root) => {
+      const store = join(root, 'store');
+      const grokRoot = join(root, 'grok');
+      seedGrok(grokRoot);
+      const cfg = makeConfig(store, { capture: { watch: { codex: false, grok: true }, hookedAgents: ['grok'] } });
+      const watcher = new SourceWatcher(cfg, new StateStore(cfg.statePath), { grokRoot, codexRoot: join(root, 'none') });
+      expect(watcher.enabled).toBe(false); // grok is hook-captured, codex off → nothing to poll
+      expect(watcher.scanOnce().imported).toBe(0);
+    });
+  });
+
   it('ignores sources disabled in config', () => {
     withTempDir((root) => {
       const store = join(root, 'store');

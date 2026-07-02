@@ -1,6 +1,6 @@
 {
   "name": "code-sessions",
-  "version": "0.1.0+codex.20260702153943",
+  "version": "0.1.0",
   "description": "Forward Codex lifecycle hooks to the code-sessions daemon for capture + telemetry.",
   "author": {
     "name": "unpolarize",

@@ -91,11 +91,10 @@ export function cmdStatus(cfg: CodeSessionsConfig): CommandResult {
     `insights:   ${cfg.insights.provider} / ${cfg.insights.mode}`,
     `remote:     ${cfg.git.remote ?? '(none)'}  autoPush=${cfg.git.autoPush}`,
   ];
-  const watched = [
-    ...(cfg.capture.watch.codex ? ['codex'] : []),
-    ...(cfg.capture.watch.grok ? ['grok'] : []),
-  ];
-  lines.push(`watch:      ${watched.length ? `${watched.join(', ')} (every ${cfg.capture.watch.intervalMs}ms)` : '(off)'}`);
+  const hooked = cfg.capture.hookedAgents;
+  const polled = (['codex', 'grok'] as const).filter((a) => cfg.capture.watch[a] && !hooked.includes(a));
+  lines.push(`watch:      ${polled.length ? `${polled.join(', ')} (every ${cfg.capture.watch.intervalMs}ms)` : '(off)'}`);
+  if (hooked.length) lines.push(`hooked:     ${hooked.join(', ')} (via hooks, not polled)`);
   lines.push(
     `otel-trig:  ${cfg.capture.otelTrigger.enabled ? `on :${cfg.capture.otelTrigger.port}` : '(off)'}`,
   );

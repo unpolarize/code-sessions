@@ -43,10 +43,15 @@ file (`~/.codex/hooks.json` is **not** read).
 
 **Built + shipped:** `integrations/codex-plugin/` — a local marketplace
 (`.agents/plugins/marketplace.json`) + the `code-sessions` plugin (`plugins/code-sessions/` with
-`.codex-plugin/plugin.json`, `hooks.json`, `scripts/cs-hook.sh`). Install:
-`codex plugin marketplace add integrations/codex-plugin && codex plugin add code-sessions@code-sessions-dev`
-(or `code-sessions install-hooks --agent codex` prints these). Marketplace root layout: the
-manifest lives at `<root>/.agents/plugins/marketplace.json`; plugins at `<root>/plugins/<name>/`.
+`.codex-plugin/plugin.json`, `hooks.json`, `scripts/cs-hook.sh`) + **`install.sh`**. Marketplace
+root layout: the manifest lives at `<root>/.agents/plugins/marketplace.json`; plugins at
+`<root>/plugins/<name>/`.
+
+**Install (verified GREEN end-to-end):** `bash integrations/codex-plugin/install.sh`. It copies the
+plugin to `~/.code-sessions/codex-plugin`, **pins the hook command to the wrapper's absolute path**
+(see below — mandatory for `codex exec`), bumps a cachebuster, and registers + installs. A real
+`codex exec` then delivered `code_sessions.turn.prompt`/`.tool.decision`/`.tool.result`/`.session.end`
+to the daemon's `/v1/logs`. (`code-sessions install-hooks --agent codex` prints the command.)
 
 **Verified (codex-cli 0.142.4):** a real `codex exec` run **fired all five hooks** — SessionStart,
 UserPromptSubmit, PreToolUse, PostToolUse, Stop — and the captured payloads are **Claude-style**:
@@ -54,23 +59,24 @@ UserPromptSubmit, PreToolUse, PostToolUse, Stop — and the captured payloads ar
 `tool_name`/`tool_input`/`tool_use_id`. **`ipc.parseHookEvent` already handles all of it — no daemon
 change was needed for Codex.**
 
-**Delivery constraints found by experiment (why the last mile is finicky):**
-- Codex runs a hook `command` as **argv, not through a shell** — use a wrapper *script*
-  (`./scripts/cs-hook.sh`), not a shell one-liner (`a; b`).
+**Delivery constraints found by experiment (handled by `install.sh`):**
+- Codex runs a hook `command` as **argv, not through a shell** — use a wrapper *script*, not a
+  shell one-liner (`a; b`).
+- `codex exec` resolves a **relative** command (`./scripts/cs-hook.sh`) against the **CWD**, not the
+  plugin, so it silently no-ops. The command must be an **absolute path** — `install.sh` pins it.
+- `codex plugin add` **caches by version+cachebuster** — `install.sh` bumps a cachebuster so edits
+  take effect.
 - Codex's hook process gets a **restricted PATH** (no nvm) — the wrapper resolves `code-sessions`
   from common global-install locations itself.
-- `codex exec` runs in a **read-only sandbox** by default, which gates the hook's access to the
-  daemon socket; capture needs interactive `codex` or a sandbox that permits it
+- `codex exec` runs in a **read-only sandbox** by default, which gates the hook's socket access;
+  capture works with interactive `codex` or a permissive sandbox
   (`--dangerously-bypass-approvals-and-sandbox` for exec).
 - Requires `code-sessions` on PATH (`npm i -g` / `npm link`) and the daemon running.
 
-So codex is **hook-instrumented at the source** (hooks fire, payload compatible, plugin installs),
-with the above deployment constraints. Grok remains the fully-proven end-to-end path.
-
 ## Consequence for poller removal (Phase 3 of the migration plan)
 
-- **Grok** can move to hooks now (poller becomes fallback).
-- **Codex** hooks fire, but keep the poller until the plugin's hook→daemon delivery is confirmed in
-  the user's actual codex sandbox/PATH setup.
-- Do **not** gate the watcher off for an agent until its hooks are confirmed delivering — otherwise
-  capture silently stops.
+Gated by `capture.hookedAgents` — the poll-based `SourceWatcher` skips any agent listed there
+(captured via hooks instead). **Grok** is on hooks now (`install-hooks --agent grok` +
+`hookedAgents: ["grok"]`). **Codex** is green via `install.sh` but keep it on the poller until its
+hooks are confirmed in the user's actual sandbox/PATH. Never add an agent to `hookedAgents` before
+its hooks are confirmed delivering — otherwise capture silently stops.

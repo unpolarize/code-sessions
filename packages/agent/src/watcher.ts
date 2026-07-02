@@ -70,17 +70,22 @@ export class SourceWatcher {
     this.grokRoot = deps.grokRoot;
   }
 
-  /** Whether any source is enabled (so the daemon can skip starting an idle watcher). */
-  get enabled(): boolean {
-    return this.cfg.capture.watch.codex || this.cfg.capture.watch.grok;
+  /** An agent is polled only when its watch flag is on AND it isn't hook-captured. */
+  private polls(agent: 'codex' | 'grok'): boolean {
+    return this.cfg.capture.watch[agent] && !this.cfg.capture.hookedAgents.includes(agent);
   }
 
-  /** Discover + import all new/changed sessions for the enabled sources. */
+  /** Whether any source is polled (so the daemon can skip starting an idle watcher). */
+  get enabled(): boolean {
+    return this.polls('codex') || this.polls('grok');
+  }
+
+  /** Discover + import all new/changed sessions for the polled sources. */
   scanOnce(): ScanResult {
-    const codex = this.cfg.capture.watch.codex
+    const codex = this.polls('codex')
       ? this.scanAgent(this.codexItems())
       : { imported: 0, skipped: 0, turns: 0 };
-    const grok = this.cfg.capture.watch.grok
+    const grok = this.polls('grok')
       ? this.scanAgent(this.grokItems())
       : { imported: 0, skipped: 0, turns: 0 };
     return {

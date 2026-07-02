@@ -112,6 +112,13 @@ export interface CaptureConfig {
    * and each inbound export re-captures + re-emits that session's GenAI-semconv traces.
    */
   otelTrigger: OtelTriggerConfig;
+  /**
+   * Agents whose lifecycle hooks are installed + confirmed. The poll-based watcher
+   * SKIPS these (they're captured via hooks in real time), leaving polling only for
+   * agents without confirmed hooks. Never add an agent here before its hooks are
+   * confirmed delivering — otherwise capture silently stops.
+   */
+  hookedAgents: string[];
 }
 
 export interface OtelTriggerConfig {
@@ -155,6 +162,7 @@ export function defaultConfig(home = homedir(), host = hostname()): CodeSessions
     capture: {
       watch: { codex: true, grok: true, intervalMs: 30000 },
       otelTrigger: { enabled: false, port: 4318 },
+      hookedAgents: [],
     },
   };
 }
@@ -188,6 +196,7 @@ export function resolveConfig(
       ...stripUndefined(override.capture),
       watch: { ...base.capture.watch, ...stripUndefined(override.capture?.watch) },
       otelTrigger: { ...base.capture.otelTrigger, ...stripUndefined(override.capture?.otelTrigger) },
+      hookedAgents: (override.capture?.hookedAgents as string[] | undefined) ?? base.capture.hookedAgents,
     },
   };
   if (override.storeDir && override.runtimeDir === undefined) {
