@@ -1,0 +1,28 @@
+{
+  "name": "code-sessions",
+  "version": "0.1.0+codex.20260702153943",
+  "description": "Forward Codex lifecycle hooks to the code-sessions daemon for capture + telemetry.",
+  "author": {
+    "name": "unpolarize",
+    "url": "https://github.com/unpolarize/code-sessions"
+  },
+  "repository": "https://github.com/unpolarize/code-sessions",
+  "license": "MIT",
+  "keywords": [
+    "observability",
+    "telemetry",
+    "sessions"
+  ],
+  "hooks": "./hooks.json",
+  "interface": {
+    "displayName": "Code Sessions",
+    "shortDescription": "Capture Codex sessions + telemetry via hooks.",
+    "longDescription": "Runs `code-sessions hook` on Codex lifecycle events so the code-sessions daemon captures the session and emits real-time OTel signals. No-op when the daemon isn't running.",
+    "developerName": "unpolarize",
+    "category": "Developer Tools",
+    "capabilities": [],
+    "defaultPrompt": [
+      "Capture this session with code-sessions."
+    ]
+  }
+}

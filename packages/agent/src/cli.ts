@@ -47,6 +47,7 @@ export async function main(argv: string[]): Promise<void> {
           ...(typeof flags.settings === 'string' ? { settingsPath: flags.settings } : {}),
           ...(typeof flags.command === 'string' ? { command: flags.command } : {}),
           ...(flags.agent === 'grok' ? { agent: 'grok' as const } : {}),
+          ...(flags.agent === 'codex' ? { agent: 'codex' as const } : {}),
         }),
       );
       break;

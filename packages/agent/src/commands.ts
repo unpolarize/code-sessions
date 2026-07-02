@@ -188,9 +188,22 @@ export async function cmdReindex(
 
 export function cmdInstallHooks(
   cfg: CodeSessionsConfig,
-  opts: { settingsPath?: string; command?: string; agent?: 'claude' | 'grok' } = {},
+  opts: { settingsPath?: string; command?: string; agent?: 'claude' | 'grok' | 'codex' } = {},
 ): CommandResult {
   const command = opts.command ?? 'code-sessions hook';
+  // Codex hooks ship as a plugin (Codex has no user-global hooks file). Guide the
+  // two-step install; the plugin lives in the repo under integrations/codex-plugin.
+  if (opts.agent === 'codex') {
+    return {
+      code: 0,
+      output: [
+        'Codex hooks install as a plugin (Codex has no global hooks file). From the repo root:',
+        '  codex plugin marketplace add integrations/codex-plugin',
+        '  codex plugin add code-sessions@code-sessions-dev',
+        'Requires `code-sessions` on PATH + the daemon running. See integrations/codex-plugin/README.md.',
+      ].join('\n'),
+    };
+  }
   // Grok reads ~/.grok/hooks/*.json (Claude-style, always-trusted) — verified firing live.
   if (opts.agent === 'grok') {
     const res = installGrokHooks(command, opts.settingsPath ? { path: opts.settingsPath } : {});

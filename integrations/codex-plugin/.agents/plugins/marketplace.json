@@ -1,0 +1,20 @@
+{
+  "name": "code-sessions-dev",
+  "interface": {
+    "displayName": "Code Sessions Dev"
+  },
+  "plugins": [
+    {
+      "name": "code-sessions",
+      "source": {
+        "source": "local",
+        "path": "./plugins/code-sessions"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
