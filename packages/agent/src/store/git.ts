@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -103,8 +103,30 @@ export class GitStore {
     return r.stdout.length > 0;
   }
 
+  /**
+   * Drop a corrupt rebase-merge dir (missing head-name — both --continue and
+   * --abort fail). Leave a real in-progress rebase alone so the caller can skip.
+   * Returns true when it is safe to commit / pull.
+   */
+  recoverCorruptRebase(): boolean {
+    const merge = join(this.dir, '.git', 'rebase-merge');
+    const apply = join(this.dir, '.git', 'rebase-apply');
+    if (!existsSync(merge) && !existsSync(apply)) return true;
+    if (existsSync(merge) && !existsSync(join(merge, 'head-name'))) {
+      rmSync(merge, { recursive: true, force: true });
+      if (existsSync(apply)) rmSync(apply, { recursive: true, force: true });
+      const autoMerge = join(this.dir, '.git', 'AUTO_MERGE');
+      if (existsSync(autoMerge)) rmSync(autoMerge);
+      return true;
+    }
+    return false; // a real rebase is in progress — do not commit into it
+  }
+
   /** Stage everything and commit. Returns committed:false when the tree is clean. */
   commit(message: string): CommitResult {
+    if (!this.recoverCorruptRebase()) {
+      return { committed: false, reason: 'rebase in progress' };
+    }
     this.run(['add', '-A']);
     if (!this.hasChanges() && !this.hasStaged()) {
       return { committed: false, reason: 'nothing to commit' };
@@ -134,9 +156,21 @@ export class GitStore {
     return this.run(['rev-parse', '--abbrev-ref', 'HEAD']).stdout || 'main';
   }
 
-  /** Rebase local commits on top of the remote (clean by construction for host-keyed paths). */
+  /** Integrate remote. Rebase when the local backlog is small; merge when
+   * thousands of unpushed session commits would make rebase wedge. */
   pull(): GitResult {
-    return this.run(['pull', '--rebase', '--autostash', 'origin', this.currentBranch()]);
+    if (!this.recoverCorruptRebase()) {
+      return { ok: false, stdout: '', stderr: 'rebase in progress', code: 1 };
+    }
+    const branch = this.currentBranch();
+    const fetch = this.run(['fetch', '--quiet', 'origin', branch]);
+    if (!fetch.ok) return fetch;
+    const ahead = this.run(['rev-list', '--count', `origin/${branch}..HEAD`]);
+    const nAhead = ahead.ok ? Number(ahead.stdout) || 0 : 0;
+    if (nAhead > 50) {
+      return this.run(['pull', '--no-rebase', '--autostash', 'origin', branch]);
+    }
+    return this.run(['pull', '--rebase', '--autostash', 'origin', branch]);
   }
 
   push(): GitResult {
@@ -149,7 +183,12 @@ export class GitStore {
     if (!commit.committed) return { commit, pushed: false };
     if (!this.opts.remote || !this.opts.autoPush) return { commit, pushed: false };
     // best-effort: integrate remote first, then push
-    this.pull();
+    const pulled = this.pull();
+    // First push to an empty remote has nothing to pull — still push.
+    // A real in-progress rebase must not push.
+    if (!pulled.ok && /rebase in progress/i.test(pulled.stderr)) {
+      return { commit, pushed: false, pushError: pulled.stderr };
+    }
     const p = this.push();
     return { commit, pushed: p.ok, ...(p.ok ? {} : { pushError: p.stderr }) };
   }

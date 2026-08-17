@@ -77,6 +77,8 @@ export class Daemon {
   private dirty = false;
   private pendingTurns = 0;
   private commitTimer?: ReturnType<typeof setTimeout>;
+  private hygieneTimer?: ReturnType<typeof setInterval>;
+  private hygieneKick?: ReturnType<typeof setTimeout>;
   private running = false;
   private readonly stats = { events: 0, turns: 0, commits: 0 };
   private readonly sessions = new Set<string>();
@@ -138,6 +140,20 @@ export class Daemon {
       } catch {
         this.receiver = undefined; // port unavailable — degrade gracefully
       }
+    }
+
+    // Label/reindex (or a crashed flush) can leave session.json dirty without
+    // flipping this.dirty. Pick those up shortly after start and every 5 min.
+    this.hygieneKick = setTimeout(() => this.flushLeftover('hygiene leftover'), 3000);
+    this.hygieneKick.unref?.();
+    this.hygieneTimer = setInterval(() => this.flushLeftover('hygiene leftover'), 5 * 60 * 1000);
+    this.hygieneTimer.unref?.();
+  }
+
+  private flushLeftover(message: string): void {
+    if (this.git?.hasChanges()) {
+      this.dirty = true;
+      this.flush(message);
     }
   }
 
@@ -268,6 +284,7 @@ export class Daemon {
       clearTimeout(this.commitTimer);
       this.commitTimer = undefined;
     }
+    if (this.git?.hasChanges()) this.dirty = true;
     if (!this.dirty || !this.git) {
       this.dirty = false;
       this.pendingTurns = 0;
@@ -301,6 +318,14 @@ export class Daemon {
     if (this.commitTimer) {
       clearTimeout(this.commitTimer);
       this.commitTimer = undefined;
+    }
+    if (this.hygieneTimer) {
+      clearInterval(this.hygieneTimer);
+      this.hygieneTimer = undefined;
+    }
+    if (this.hygieneKick) {
+      clearTimeout(this.hygieneKick);
+      this.hygieneKick = undefined;
     }
     await this.workQueue; // drain any queued hook processing before the final flush
     this.flush('daemon shutdown');

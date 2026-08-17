@@ -55,6 +55,35 @@ describe('GitStore basics', () => {
   });
 });
 
+describe('GitStore rebase recovery', () => {
+  it('clears a corrupt rebase-merge (no head-name) and then commits', () => {
+    withTempDir((dir) => {
+      const store = new GitStore(dir);
+      store.init();
+      store.commit('init');
+      mkdirSync(join(dir, '.git', 'rebase-merge'), { recursive: true });
+      writeFile(dir, 'hosts/A/2026-06/s1/session.json', '{"ok":1}');
+      const c = store.commit('after corrupt rebase');
+      expect(c.committed).toBe(true);
+      expect(existsSync(join(dir, '.git', 'rebase-merge'))).toBe(false);
+    });
+  });
+
+  it('refuses to commit while a real rebase is in progress', () => {
+    withTempDir((dir) => {
+      const store = new GitStore(dir);
+      store.init();
+      store.commit('init');
+      mkdirSync(join(dir, '.git', 'rebase-merge'), { recursive: true });
+      writeFileSync(join(dir, '.git', 'rebase-merge', 'head-name'), 'refs/heads/main\n');
+      writeFile(dir, 'hosts/A/2026-06/s1/session.json', '{"ok":1}');
+      const c = store.commit('during rebase');
+      expect(c.committed).toBe(false);
+      expect(c.reason).toMatch(/rebase in progress/);
+    });
+  });
+});
+
 describe('GitStore two-host conflict-free sync', () => {
   it('merges host-keyed writes from two machines with no conflict', () => {
     withTempDir((root) => {

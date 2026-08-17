@@ -80,6 +80,20 @@ describe('Daemon', () => {
     });
   });
 
+  it('flushes leftover dirty session.json that the dirty-flag missed', async () => {
+    await withTempDirAsync(async (root) => {
+      const store = join(root, 'store');
+      const d = new Daemon(makeConfig(store, { batch: { maxTurns: 99, maxIntervalMs: 60_000 } }));
+      await d.start();
+      mkdirSync(join(store, 'hosts', 'test-host', '2026-06', 's1'), { recursive: true });
+      writeFileSync(join(store, 'hosts', 'test-host', '2026-06', 's1', 'session.json'), '{"labels":["project:docs-kb"]}\n');
+      const before = gitLogCount(store);
+      expect(d.flush('hygiene leftover')).toBe(true);
+      expect(gitLogCount(store)).toBeGreaterThan(before);
+      await d.stop();
+    });
+  });
+
   it('reports an error when the transcript cannot be found', async () => {
     await withTempDirAsync(async (root) => {
       const d = new Daemon(makeConfig(join(root, 'store')));
