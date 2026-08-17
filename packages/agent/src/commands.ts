@@ -25,6 +25,8 @@ export interface CommandResult {
   output: string;
 }
 
+export { startServe } from './serve/http';
+
 function gitStoreFor(cfg: CodeSessionsConfig): GitStore {
   return new GitStore(cfg.storeDir, {
     ...(cfg.git.remote ? { remote: cfg.git.remote } : {}),

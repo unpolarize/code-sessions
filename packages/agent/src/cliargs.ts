@@ -63,10 +63,13 @@ Commands:
   search          Full-text search session turns  <text> [--limit N]
   fork            Fork a session at a turn ("git for sessions")  <session-id> --at N [--id X]
   analytics       Compute MVP-2 rollups + digest into analytics/
+  serve           Local HTTP session viewer + vscode:// open buttons  [--port N] [--bind 127.0.0.1]
   status          Show daemon/store status
   doctor          Environment checks
 
 Flags:
+  --port <n>           serve: HTTP port (default 8787)
+  --bind <host>        serve: bind address (default 127.0.0.1)
   --store <dir>        store dir (default ~/.sessions)
   --host <name>        logical host id
   --remote <url>       git remote for the store

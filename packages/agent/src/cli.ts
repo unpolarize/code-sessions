@@ -16,6 +16,7 @@ import {
   cmdStatus,
   cmdUsage,
   startDaemon,
+  startServe,
   type CommandResult,
 } from './commands';
 import { cmdAnalytics } from './analytics/command';
@@ -125,6 +126,19 @@ export async function main(argv: string[]): Promise<void> {
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
       break; // keep the event loop alive
+    }
+    case 'serve': {
+      const port = typeof flags.port === 'string' ? Number(flags.port) : 8787;
+      const bind = typeof flags.bind === 'string' ? flags.bind : '127.0.0.1';
+      const handle = await startServe({ storeDir: cfg.storeDir, port, host: bind });
+      process.stdout.write(`code-sessions serve ${handle.url}  (store ${cfg.storeDir})\n`);
+      const stop = async (): Promise<void> => {
+        await handle.close();
+        process.exit(0);
+      };
+      process.on('SIGINT', stop);
+      process.on('SIGTERM', stop);
+      break;
     }
     case 'help':
     case '--help':
