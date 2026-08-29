@@ -94,6 +94,19 @@ export interface SessionEvent {
   event: unknown;
 }
 
+/** `session.subscribe`. Omit `id` or pass `"all"` for every session. */
+export interface SessionSubscribeParams {
+  id?: string;
+}
+
+/** JSON-RPC notification `session.event` pushed on a subscribed connection. */
+export interface SessionEventParams {
+  id: string;
+  seq: number;
+  ts: number;
+  event: unknown;
+}
+
 export interface MetricsResult {
   eventLoopLagMs: { p50: number; p99: number };
   queueDepth: number;

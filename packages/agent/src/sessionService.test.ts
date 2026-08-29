@@ -59,6 +59,18 @@ describe('SessionService', () => {
     });
   });
 
+  it('onEvent fires for append and not for create', () => {
+    withTempDir((root) => {
+      const svc = new SessionService(makeConfig(`${root}/store`));
+      const seen: Array<{ id: string; seq: number }> = [];
+      svc.onEvent((id, rec) => seen.push({ id, seq: rec.seq }));
+      const { id } = svc.create({ cwd: '/ws' });
+      expect(seen).toHaveLength(0);
+      svc.append(id, { kind: 'user', text: 'hi' }, 1);
+      expect(seen).toEqual([{ id, seq: 1 }]);
+    });
+  });
+
   it('list hasContent filter hides empty creates', () => {
     withTempDir((root) => {
       const svc = new SessionService(makeConfig(`${root}/store`));

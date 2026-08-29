@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { connect } from 'node:net';
 import { Daemon } from './daemon';
 import { rpcCall } from './rpc';
 import { sendEvent } from './ipc';
@@ -66,6 +67,80 @@ describe('daemon JSON-RPC (phase 1)', () => {
         });
         expect(ack.ok).toBe(true);
         expect(existsSync(socketPath)).toBe(true);
+      } finally {
+        await d.stop();
+      }
+    });
+  });
+
+  it('session.subscribe pushes session.event on append', async () => {
+    await withTempDirAsync(async (root) => {
+      const store = join(root, 'store');
+      const socketPath = join(root, 'd.sock');
+      const d = new Daemon(makeConfig(store, { socketPath, batch: { maxTurns: 99 } }));
+      await d.start();
+      try {
+        const a = (await rpcCall(socketPath, 'session.create', {
+          backend: 'grok',
+          cwd: '/proj-a',
+        })) as { id: string };
+        const b = (await rpcCall(socketPath, 'session.create', {
+          backend: 'grok',
+          cwd: '/proj-b',
+        })) as { id: string };
+
+        const sock = connect(socketPath);
+        const notes: Array<{ id: string; seq: number }> = [];
+        await new Promise<void>((resolve, reject) => {
+          let buf = '';
+          const timer = setTimeout(() => reject(new Error('subscribe timeout')), 4000);
+          sock.on('error', reject);
+          sock.on('connect', () => {
+            sock.write(
+              `${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'session.subscribe', params: { id: a.id } })}\n`,
+            );
+          });
+          sock.on('data', (chunk) => {
+            buf += chunk.toString('utf8');
+            let nl: number;
+            while ((nl = buf.indexOf('\n')) >= 0) {
+              const line = buf.slice(0, nl);
+              buf = buf.slice(nl + 1);
+              if (!line.trim()) continue;
+              const msg = JSON.parse(line) as {
+                id?: number;
+                result?: { ok?: boolean; filter?: string };
+                method?: string;
+                params?: { id: string; seq: number };
+              };
+              if (msg.id === 1) {
+                expect(msg.result?.ok).toBe(true);
+                expect(msg.result?.filter).toBe(a.id);
+                void rpcCall(socketPath, 'session.append', {
+                  id: b.id,
+                  event: { kind: 'user', text: 'other' },
+                  ts: 1,
+                }).then(() =>
+                  rpcCall(socketPath, 'session.append', {
+                    id: a.id,
+                    event: { kind: 'user', text: 'hi' },
+                    ts: 2,
+                  }),
+                );
+                continue;
+              }
+              if (msg.method === 'session.event' && msg.params) {
+                notes.push({ id: msg.params.id, seq: msg.params.seq });
+                if (notes.length >= 1) {
+                  clearTimeout(timer);
+                  resolve();
+                }
+              }
+            }
+          });
+        });
+        sock.destroy();
+        expect(notes).toEqual([{ id: a.id, seq: 1 }]);
       } finally {
         await d.stop();
       }

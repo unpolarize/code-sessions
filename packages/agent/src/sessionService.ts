@@ -70,7 +70,26 @@ function lastSeqFromEvents(dir: string): number {
 }
 
 export class SessionService {
+  private readonly listeners = new Set<(id: string, rec: SessionEvent) => void>();
+
   constructor(private readonly cfg: CodeSessionsConfig) {}
+
+  onEvent(fn: (id: string, rec: SessionEvent) => void): () => void {
+    this.listeners.add(fn);
+    return () => {
+      this.listeners.delete(fn);
+    };
+  }
+
+  private emit(id: string, rec: SessionEvent): void {
+    for (const fn of this.listeners) {
+      try {
+        fn(id, rec);
+      } catch {
+        /* subscriber errors must not fail append */
+      }
+    }
+  }
 
   create(params: SessionCreateParams = {}): { id: string } {
     const id = params.id && params.id.length > 0 ? params.id : randomUUID();
@@ -145,6 +164,7 @@ export class SessionService {
     appendFileSync(p, `${JSON.stringify(rec)}\n`);
     const patch: Partial<SessionEnvelope> = { event_seq: seq, hasContent: true };
     writeEnvelope(found.dir, { ...found.env, ...patch, event_seq: seq, hasContent: true });
+    this.emit(id, rec);
     return rec;
   }
 

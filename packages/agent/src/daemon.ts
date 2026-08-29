@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { createServer, type Server, type Socket } from 'node:net';
 import { join } from 'node:path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
+import type { SessionEvent } from '@unpolarize/code-sessions-schema';
 import { CaptureEngine } from './capture';
 import type { CodeSessionsConfig } from './config';
 import { isSessionEndEvent, parseHookEvent, type HookAck, type HookEvent } from './ipc';
@@ -87,7 +88,9 @@ export class Daemon {
   private readonly sessions = new Set<string>();
   readonly sessionService: SessionService;
   private readonly lagHist = monitorEventLoopDelay({ resolution: 20 });
-  private daemonVersion = '0.13.0';
+  private daemonVersion = '0.13.1';
+  /** Live `session.event` subscribers. Missing `id` means all sessions. */
+  private readonly subscribers = new Map<Socket, { id?: string }>();
 
   constructor(
     private readonly cfg: CodeSessionsConfig,
@@ -108,6 +111,28 @@ export class Daemon {
     if (deps.watcher) this.watcher = deps.watcher;
     if (deps.receiver) this.receiver = deps.receiver;
     this.sessionService = new SessionService(cfg);
+    this.sessionService.onEvent((id, rec) => this.fanoutSessionEvent(id, rec));
+  }
+
+  private fanoutSessionEvent(id: string, rec: SessionEvent): void {
+    if (this.subscribers.size === 0) return;
+    const line = `${JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'session.event',
+      params: { id, seq: rec.seq, ts: rec.ts, event: rec.event },
+    })}\n`;
+    for (const [sock, filter] of this.subscribers) {
+      if (filter.id && filter.id !== id) continue;
+      if (sock.destroyed) {
+        this.subscribers.delete(sock);
+        continue;
+      }
+      try {
+        sock.write(line);
+      } catch {
+        this.subscribers.delete(sock);
+      }
+    }
   }
 
   async start(): Promise<void> {
@@ -214,7 +239,7 @@ export class Daemon {
     this.triggerTimers.set(sessionId, timer);
   }
 
-  private rpcCtx(): RpcContext {
+  private rpcCtx(sock?: Socket): RpcContext {
     return {
       cfg: this.cfg,
       sessions: this.sessionService,
@@ -224,11 +249,18 @@ export class Daemon {
       }),
       queueDepth: () => this.pendingTurns,
       daemonVersion: this.daemonVersion,
+      subscribe: sock
+        ? (filter) => {
+            this.subscribers.set(sock, filter);
+          }
+        : undefined,
     };
   }
 
   private onConnection(sock: Socket): void {
     let buf = '';
+    sock.on('close', () => this.subscribers.delete(sock));
+    sock.on('end', () => this.subscribers.delete(sock));
     sock.on('data', async (chunk) => {
       buf += chunk.toString('utf8');
       let nl: number;
@@ -238,7 +270,7 @@ export class Daemon {
         if (!line.trim()) continue;
         const kind = parseLine(line);
         if (kind !== 'hook' && kind !== 'invalid') {
-          const res = await handleRpc(this.rpcCtx(), kind);
+          const res = await handleRpc(this.rpcCtx(sock), kind);
           if (res && !sock.destroyed) sock.write(`${JSON.stringify(res)}\n`);
           continue;
         }
@@ -364,6 +396,7 @@ export class Daemon {
         /* ignore */
       }
     }
+    this.subscribers.clear();
     this.lagHist.disable();
     this.running = false;
   }

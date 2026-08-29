@@ -27,6 +27,8 @@ export interface RpcContext {
   lag: () => { p50: number; p99: number };
   queueDepth: () => number;
   daemonVersion: string;
+  /** Register this connection for `session.event` notifications. */
+  subscribe?: (filter: { id?: string }) => void;
 }
 
 export async function handleRpc(ctx: RpcContext, req: JsonRpcRequest): Promise<JsonRpcResponse | null> {
@@ -73,6 +75,18 @@ export async function handleRpc(ctx: RpcContext, req: JsonRpcRequest): Promise<J
       case 'session.list': {
         const params = (req.params ?? {}) as SessionListParams;
         return reply(ctx.sessions.list(params) satisfies SessionListResult);
+      }
+      case 'session.subscribe': {
+        const params = (req.params ?? {}) as { id?: string };
+        if (!ctx.subscribe) {
+          if (req.id === undefined || req.id === null) return null;
+          return fail(RPC_INTERNAL, 'subscribe not available on this connection');
+        }
+        const raw = typeof params.id === 'string' ? params.id : undefined;
+        const id = raw && raw !== 'all' ? raw : undefined;
+        ctx.subscribe({ id });
+        if (req.id === undefined || req.id === null) return null;
+        return reply({ ok: true, filter: id ?? 'all' });
       }
       case 'index.query': {
         const params = (req.params ?? {}) as SessionListParams;
