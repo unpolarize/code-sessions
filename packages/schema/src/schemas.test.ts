@@ -91,6 +91,24 @@ describe('SessionSchema', () => {
     expect(s.labels).toEqual([]);
     expect(s.totals.cost_usd).toBe(0);
     expect(s.planning_refs).toEqual([]);
+    expect(s.hasContent).toBeUndefined();
+  });
+
+  it('accepts codebuild agent and phase-1 envelope fields', () => {
+    const s = parseSession({
+      schema: SCHEMA_VERSIONS.session,
+      session_id: 's',
+      host: 'h',
+      agent: 'codebuild',
+      native_ref: { format: 'codebuild-jsonl', uuid: 's' },
+      hasContent: true,
+      backend: 'grok',
+      event_seq: 3,
+    });
+    expect(s.agent).toBe('codebuild');
+    expect(s.hasContent).toBe(true);
+    expect(s.backend).toBe('grok');
+    expect(s.event_seq).toBe(3);
   });
 
   it('carries planning_refs and phase for knowledge-planning linkage', () => {

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { dirname } from 'node:path';
 import {
   SCHEMA_VERSIONS,
+  parseSession,
   type AgentKind,
   type SessionEnvelope,
   type Turn,
@@ -107,7 +108,31 @@ export function computeEnvelope(
   if (endedAt) env.ended_at = endedAt;
   const title = meta.title ?? existing?.title;
   if (title) env.title = title;
+  if (existing?.hasContent !== undefined) env.hasContent = existing.hasContent;
+  else env.hasContent = turns.length > 0;
+  if (existing?.backend) env.backend = existing.backend;
+  if (existing?.effort) env.effort = existing.effort;
+  if (existing?.mode) env.mode = existing.mode;
+  if (existing?.backendSessionId) env.backendSessionId = existing.backendSessionId;
+  if (existing?.kind) env.kind = existing.kind;
+  if (existing?.stopEvents) env.stopEvents = existing.stopEvents;
+  if (existing?.backendSessions) env.backendSessions = existing.backendSessions;
+  if (existing?.event_seq !== undefined) env.event_seq = existing.event_seq;
   return env;
+}
+
+export function readEnvelope(dir: string): SessionEnvelope | undefined {
+  const p = envelopeFile(dir);
+  if (!existsSync(p)) return undefined;
+  try {
+    return parseSession(JSON.parse(readFileSync(p, 'utf8')));
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeEnvelope(dir: string, env: SessionEnvelope): void {
+  writeJsonAtomic(envelopeFile(dir), env);
 }
 
 /** Read turns from disk, derive the envelope (preserving prior labels/title), and write session.json. */

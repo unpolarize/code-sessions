@@ -7,6 +7,8 @@ export * from './hygiene';
 export * from './pricing';
 export * from './ipc';
 export * from './daemon';
+export * from './sessionService';
+export * from './rpc';
 export * from './commands';
 export { parseFlags, overridesFromFlags } from './cliargs';
 export * from './store/paths';

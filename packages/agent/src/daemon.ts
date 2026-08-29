@@ -1,9 +1,12 @@
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { createServer, type Server, type Socket } from 'node:net';
 import { join } from 'node:path';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { CaptureEngine } from './capture';
 import type { CodeSessionsConfig } from './config';
 import { isSessionEndEvent, parseHookEvent, type HookAck, type HookEvent } from './ipc';
+import { handleRpc, parseLine, type RpcContext } from './rpc';
+import { SessionService } from './sessionService';
 import { StateStore } from './state';
 import { GitStore } from './store/git';
 import { readEntries } from './store/scan';
@@ -82,6 +85,9 @@ export class Daemon {
   private running = false;
   private readonly stats = { events: 0, turns: 0, commits: 0 };
   private readonly sessions = new Set<string>();
+  readonly sessionService: SessionService;
+  private readonly lagHist = monitorEventLoopDelay({ resolution: 20 });
+  private daemonVersion = '0.13.0';
 
   constructor(
     private readonly cfg: CodeSessionsConfig,
@@ -101,6 +107,7 @@ export class Daemon {
     if (deps.onHookEvent) this.onHookEvent = deps.onHookEvent;
     if (deps.watcher) this.watcher = deps.watcher;
     if (deps.receiver) this.receiver = deps.receiver;
+    this.sessionService = new SessionService(cfg);
   }
 
   async start(): Promise<void> {
@@ -148,6 +155,7 @@ export class Daemon {
     this.hygieneKick.unref?.();
     this.hygieneTimer = setInterval(() => this.flushLeftover('hygiene leftover'), 5 * 60 * 1000);
     this.hygieneTimer.unref?.();
+    this.lagHist.enable();
   }
 
   private flushLeftover(message: string): void {
@@ -206,6 +214,19 @@ export class Daemon {
     this.triggerTimers.set(sessionId, timer);
   }
 
+  private rpcCtx(): RpcContext {
+    return {
+      cfg: this.cfg,
+      sessions: this.sessionService,
+      lag: () => ({
+        p50: this.lagHist.percentile(50) / 1e6,
+        p99: this.lagHist.percentile(99) / 1e6,
+      }),
+      queueDepth: () => this.pendingTurns,
+      daemonVersion: this.daemonVersion,
+    };
+  }
+
   private onConnection(sock: Socket): void {
     let buf = '';
     sock.on('data', async (chunk) => {
@@ -215,10 +236,13 @@ export class Daemon {
         const line = buf.slice(0, nl);
         buf = buf.slice(nl + 1);
         if (!line.trim()) continue;
-        // Ack IMMEDIATELY, then process the event on a serial background queue. The hook
-        // shim (and therefore the agent's chat turn) must never wait on capture / ollama
-        // labeling / OTLP export / git — those run off the ack path. Serialized so the
-        // ~6 hooks/turn don't race on the store / git.
+        const kind = parseLine(line);
+        if (kind !== 'hook' && kind !== 'invalid') {
+          const res = await handleRpc(this.rpcCtx(), kind);
+          if (res && !sock.destroyed) sock.write(`${JSON.stringify(res)}\n`);
+          continue;
+        }
+        // Hook path: ack IMMEDIATELY, then process on a serial background queue.
         let evt: HookEvent | null = null;
         try {
           evt = parseHookEvent(JSON.parse(line));
@@ -340,6 +364,7 @@ export class Daemon {
         /* ignore */
       }
     }
+    this.lagHist.disable();
     this.running = false;
   }
 }

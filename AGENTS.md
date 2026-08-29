@@ -49,3 +49,15 @@ npm run build     # tsup -> dist (schema emits .d.ts; agent emits JS)
 1. Add `normalize<Agent>Event` + `extract<Agent>SessionMeta` in `packages/schema`.
 2. Branch on `agent` in the capture engine; keep `raw` passthrough for resume.
 3. Add golden-file tests with a real fixture transcript.
+
+## Suite architecture (private repo — read before cross-component work)
+
+The suite-level design (CS · CSV · CB · KP), the **target** in which this daemon becomes the
+sessions service (session API over `daemon.sock`, single indexer, CB store migrated into
+`~/.sessions`, phase-2 agent supervisor), the performance tracking table, testing strategy and the
+cross-project issues table live in the **private** `unpolarize/architecture` repo, cloned next to
+this one at `../architecture` (symlink: [`docs/suite-architecture`](docs/suite-architecture)).
+Private by design — link by path, never copy its content into this repo.
+
+- Daemon API additions must match `tools/target.md` § Daemon API; changes to it go through a `decisions/` entry there first.
+- `docs/architecture.md` here stays the authoritative doc for the capture/telemetry pipeline internals.

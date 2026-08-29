@@ -8,7 +8,8 @@ import { sendEvent } from '../ipc';
 import { envelopeFile, insightsFile, sessionDir, turnFile } from '../store/paths';
 import { makeConfig, withTempDirAsync } from './tmp';
 
-const BIN = fileURLToPath(new URL('../../bin/code-sessions.mjs', import.meta.url));
+/** Drive source CLI (not a stale dist/) so --store isolation is guaranteed. */
+const CLI = fileURLToPath(new URL('../cli.ts', import.meta.url));
 
 const USER =
   '{"type":"user","sessionId":"e2e","cwd":"/p","timestamp":"2026-06-20T08:00:00Z","message":{"role":"user","content":"Fix the bug in foo.ts"}}';
@@ -74,7 +75,7 @@ describe('e2e: CLI binary (backfill -> reindex -> analytics -> status)', () => {
       writeFileSync(join(projects, 'cli-1.jsonl'), `${USER}\n${ASSISTANT}\n${DONE}\n`);
 
       const run = (...args: string[]) =>
-        spawnSync(process.execPath, [BIN, ...args, '--store', store, '--host', 'cli-host'], {
+        spawnSync(process.execPath, ['--import', 'tsx', CLI, ...args, '--store', store, '--host', 'cli-host'], {
           encoding: 'utf8',
         });
 

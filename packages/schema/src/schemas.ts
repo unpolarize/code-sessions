@@ -8,7 +8,7 @@ import { z } from 'zod';
  * these shapes while the verbatim `raw` event is preserved for lossless resume.
  */
 
-export const AGENTS = ['claude-code', 'codex', 'grok', 'unknown'] as const;
+export const AGENTS = ['claude-code', 'codex', 'grok', 'codebuild', 'unknown'] as const;
 export const ROLES = ['user', 'assistant', 'tool', 'system'] as const;
 
 export const UsageSchema = z
@@ -104,6 +104,18 @@ export const SessionSchema = z
     /** execution phase when linked to a plan (mirrors the planning kanban lanes) */
     phase: z.enum(['backlog', 'planning', 'implementing', 'validating', 'complete']).optional(),
     native_ref: NativeRefSchema,
+    /** True once the session has a user or assistant turn (empty panel-opens are false). */
+    hasContent: z.boolean().optional(),
+    /** CB/CLI backend id (claude|grok|codex|…) — distinct from `agent` capture kind. */
+    backend: z.string().optional(),
+    effort: z.string().optional(),
+    mode: z.string().optional(),
+    backendSessionId: z.string().optional(),
+    kind: z.string().optional(),
+    stopEvents: z.array(z.unknown()).optional(),
+    backendSessions: z.record(z.string()).optional(),
+    /** Last events.ndjson sequence number (session.append). */
+    event_seq: z.number().int().nonnegative().optional(),
   })
   .strict();
 

@@ -16,6 +16,7 @@ const NATIVE_FORMAT: Record<string, string> = {
   'claude-code': 'claude-jsonl',
   grok: 'grok-jsonl',
   codex: 'codex-rollout',
+  codebuild: 'codebuild-jsonl',
   unknown: 'unknown',
 };
 

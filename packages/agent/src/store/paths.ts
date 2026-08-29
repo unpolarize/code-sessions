@@ -32,6 +32,11 @@ export function envelopeFile(dir: string): string {
   return join(dir, 'session.json');
 }
 
+/** Local-only append-only live stream (not git-pushed). */
+export function eventsFile(dir: string): string {
+  return join(dir, 'events.ndjson');
+}
+
 export function insightsFile(dir: string): string {
   return join(dir, 'insights', 'labels.json');
 }

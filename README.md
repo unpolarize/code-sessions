@@ -24,6 +24,10 @@ insight labeling (Claude / Grok / local Ollama) and a server-free analytics roll
 
 ## Architecture
 
+> Telemetry pipeline internals below. The **suite-level** design — and the plan for this daemon to
+> grow into the sessions service that Code Build and Code Sessions VS Code query — lives in the
+> **private** `unpolarize/architecture` repo (`../architecture/tools/`, symlink `docs/suite-architecture`).
+
 ```
 Claude Code ──hooks──▶ code-sessions daemon ──▶ ~/.sessions (a git repo you own)
               (event)   │  tail JSONL (content)     hosts/<host>/<YYYY-MM>/<uuid>/
