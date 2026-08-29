@@ -21,29 +21,35 @@ import {
 } from './commands';
 import { cmdAnalytics } from './analytics/command';
 import { handleHookInput, readStdin } from './hooks/shim';
+import { flushTrace, initTrace, startFileSink, startSpan, startStderrSlowSink } from './hostTrace';
 
-function emit(res: CommandResult): never {
+async function emit(res: CommandResult): Promise<never> {
+  await flushTrace();
   if (res.output) process.stdout.write(`${res.output}\n`);
   process.exit(res.code);
 }
 
 export async function main(argv: string[]): Promise<void> {
-  const command = argv[0];
+  const command = argv[0] ?? 'help';
+  initTrace('cs', '0.13.2');
+  startFileSink();
+  startStderrSlowSink();
+  const span = startSpan(`cs.cli.${command}`);
   const flags = parseFlags(argv.slice(1));
   const cfg = loadConfig(overridesFromFlags(flags));
 
   switch (command) {
     case 'init':
-      emit(cmdInit(cfg));
+      await emit(cmdInit(cfg));
       break;
     case 'status':
-      emit(cmdStatus(cfg));
+      await emit(cmdStatus(cfg));
       break;
     case 'doctor':
-      emit(cmdDoctor(cfg));
+      await emit(cmdDoctor(cfg));
       break;
     case 'install-hooks':
-      emit(
+      await emit(
         cmdInstallHooks(cfg, {
           ...(typeof flags.settings === 'string' ? { settingsPath: flags.settings } : {}),
           ...(typeof flags.command === 'string' ? { command: flags.command } : {}),
@@ -53,10 +59,10 @@ export async function main(argv: string[]): Promise<void> {
       );
       break;
     case 'install-skills':
-      emit(cmdInstallSkills(typeof flags.agent === 'string' ? { agent: flags.agent as 'claude' | 'codex' | 'grok' | 'all' } : {}));
+      await emit(cmdInstallSkills(typeof flags.agent === 'string' ? { agent: flags.agent as 'claude' | 'codex' | 'grok' | 'all' } : {}));
       break;
     case 'backfill':
-      emit(
+      await emit(
         await cmdBackfill(cfg, {
           ...(typeof flags.projects === 'string' ? { projectsDir: flags.projects } : {}),
           ...(typeof flags.agent === 'string' ? { agent: flags.agent as 'claude' | 'grok' | 'codex' | 'codebuild' | 'all' } : {}),
@@ -64,25 +70,25 @@ export async function main(argv: string[]): Promise<void> {
       );
       break;
     case 'reindex':
-      emit(await cmdReindex(cfg, typeof flags.since === 'string' ? { since: flags.since } : {}));
+      await emit(await cmdReindex(cfg, typeof flags.since === 'string' ? { since: flags.since } : {}));
       break;
     case 'analytics':
-      emit(await cmdAnalytics(cfg));
+      await emit(await cmdAnalytics(cfg));
       break;
     case 'export':
-      emit(await cmdExport(cfg, typeof flags.since === 'string' ? { since: flags.since } : {}));
+      await emit(await cmdExport(cfg, typeof flags.since === 'string' ? { since: flags.since } : {}));
       break;
     case 'index':
-      emit(cmdIndex(cfg));
+      await emit(cmdIndex(cfg));
       break;
     case 'usage':
-      emit(cmdUsage(cfg, { json: flags.json === true }));
+      await emit(cmdUsage(cfg, { json: flags.json === true }));
       break;
     case 'graph':
-      emit(cmdGraph(cfg, { json: flags.json === true }));
+      await emit(cmdGraph(cfg, { json: flags.json === true }));
       break;
     case 'query':
-      emit(
+      await emit(
         cmdQuery(cfg, {
           ...(typeof flags.limit === 'string' ? { limit: Number(flags.limit) } : {}),
           ...(typeof flags.agent === 'string' ? { agent: flags.agent } : {}),
@@ -91,12 +97,12 @@ export async function main(argv: string[]): Promise<void> {
       break;
     case 'search': {
       const q = argv.slice(1).find((a) => !a.startsWith('--')) ?? '';
-      emit(cmdSearch(cfg, { query: q, ...(typeof flags.limit === 'string' ? { limit: Number(flags.limit) } : {}) }));
+      await emit(cmdSearch(cfg, { query: q, ...(typeof flags.limit === 'string' ? { limit: Number(flags.limit) } : {}) }));
       break;
     }
     case 'fork': {
       const sid = argv.slice(1).find((a) => !a.startsWith('--')) ?? '';
-      emit(
+      await emit(
         cmdFork(cfg, {
           sessionId: sid,
           atTurn: typeof flags.at === 'string' ? Number(flags.at) : NaN,
@@ -113,11 +119,15 @@ export async function main(argv: string[]): Promise<void> {
       } catch {
         /* ignore */
       }
+      span.end();
+      await flushTrace();
       process.exit(0);
       break;
     }
     case 'start': {
       const daemon = await startDaemon(cfg);
+      span.end();
+      await flushTrace();
       process.stdout.write(`code-sessions daemon listening on ${cfg.socketPath}\n`);
       const stop = async (): Promise<void> => {
         await daemon.stop();
@@ -144,15 +154,21 @@ export async function main(argv: string[]): Promise<void> {
     case '--help':
     case undefined:
       process.stdout.write(HELP);
+      span.end();
+      await flushTrace();
       process.exit(command ? 0 : 1);
       break;
     default:
       process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
+      span.end();
+      await flushTrace();
       process.exit(1);
   }
+  span.end();
 }
 
-main(process.argv.slice(2)).catch((err) => {
+main(process.argv.slice(2)).catch(async (err) => {
   process.stderr.write(`error: ${err instanceof Error ? err.message : String(err)}\n`);
+  await flushTrace();
   process.exit(1);
 });

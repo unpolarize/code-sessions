@@ -7,6 +7,7 @@ import { CaptureEngine } from './capture';
 import type { CodeSessionsConfig } from './config';
 import { isSessionEndEvent, parseHookEvent, type HookAck, type HookEvent } from './ipc';
 import { handleRpc, parseLine, type RpcContext } from './rpc';
+import { initTrace, startFileSink, startSpan } from './hostTrace';
 import { SessionService } from './sessionService';
 import { StateStore } from './state';
 import { GitStore } from './store/git';
@@ -88,7 +89,7 @@ export class Daemon {
   private readonly sessions = new Set<string>();
   readonly sessionService: SessionService;
   private readonly lagHist = monitorEventLoopDelay({ resolution: 20 });
-  private daemonVersion = '0.13.1';
+  private daemonVersion = '0.13.2';
   /** Live `session.event` subscribers. Missing `id` means all sessions. */
   private readonly subscribers = new Map<Socket, { id?: string }>();
 
@@ -136,6 +137,9 @@ export class Daemon {
   }
 
   async start(): Promise<void> {
+    initTrace('cs', this.daemonVersion);
+    startFileSink();
+    const span = startSpan('cs.start');
     mkdirSync(this.cfg.storeDir, { recursive: true });
     mkdirSync(this.cfg.runtimeDir, { recursive: true });
     this.git?.init();
@@ -149,6 +153,7 @@ export class Daemon {
       });
       this.server = server;
     });
+    span.mark('listen');
 
     // Poll-based capture for hookless agents (codex/grok). Auto-create from config
     // unless one was injected. Runs an immediate scan, then on its own interval.
@@ -157,6 +162,7 @@ export class Daemon {
       if (w.enabled) this.watcher = w;
     }
     this.watcher?.start((r) => this.onWatcherImported(r));
+    span.mark('watcher');
 
     // OTLP-trigger receiver: an agent's own telemetry export drives capture.
     // Auto-create from config unless injected; resilient — a port clash logs and
@@ -181,6 +187,7 @@ export class Daemon {
     this.hygieneTimer = setInterval(() => this.flushLeftover('hygiene leftover'), 5 * 60 * 1000);
     this.hygieneTimer.unref?.();
     this.lagHist.enable();
+    span.end();
   }
 
   private flushLeftover(message: string): void {
@@ -192,10 +199,12 @@ export class Daemon {
 
   /** A watcher scan imported sessions into the store — mark dirty and schedule a commit. */
   private onWatcherImported(r: ScanResult): void {
+    const span = startSpan('cs.watch');
     this.dirty = true;
     this.pendingTurns += r.turns;
     this.stats.turns += r.turns;
     this.scheduleFlush();
+    span.end({ imported: r.imported, turns: r.turns, skipped: r.skipped });
   }
 
   /**
@@ -270,8 +279,15 @@ export class Daemon {
         if (!line.trim()) continue;
         const kind = parseLine(line);
         if (kind !== 'hook' && kind !== 'invalid') {
-          const res = await handleRpc(this.rpcCtx(sock), kind);
-          if (res && !sock.destroyed) sock.write(`${JSON.stringify(res)}\n`);
+          const rpcSpan = startSpan(`cs.rpc.${kind.method}`);
+          try {
+            const res = await handleRpc(this.rpcCtx(sock), kind);
+            rpcSpan.end({ ok: !res?.error });
+            if (res && !sock.destroyed) sock.write(`${JSON.stringify(res)}\n`);
+          } catch (e) {
+            rpcSpan.end({ err: true });
+            throw e;
+          }
           continue;
         }
         // Hook path: ack IMMEDIATELY, then process on a serial background queue.
@@ -293,6 +309,7 @@ export class Daemon {
 
   /** Process a single hook event: capture, then decide whether to flush a commit. */
   async handleEvent(evt: HookEvent): Promise<HookAck> {
+    const span = startSpan('cs.hook');
     this.stats.events++;
     // Real-time OTel log emission, fire-and-forget BEFORE the (slower) file capture,
     // so the signal lands even for tool-use events that carry no new transcript turns.
@@ -301,9 +318,13 @@ export class Daemon {
       evt.transcript_path && existsSync(evt.transcript_path)
         ? evt.transcript_path
         : findTranscript(this.cfg.claudeProjectsDir, evt.session_id);
-    if (!transcript) return { ok: false, error: 'transcript not found' };
+    if (!transcript) {
+      span.end({ ok: false, reason: 'transcript not found' });
+      return { ok: false, error: 'transcript not found' };
+    }
 
     const res = this.capture.captureSession(evt.session_id, transcript);
+    span.mark('capture');
     this.sessions.add(evt.session_id);
     if (res.newTurns > 0 || res.writtenPaths.length > 0) {
       this.dirty = true;
@@ -322,6 +343,7 @@ export class Daemon {
     } else {
       this.scheduleFlush();
     }
+    span.end({ event: evt.event, session: evt.session_id, newTurns: res.newTurns, flushed });
     return { ok: true, newTurns: res.newTurns, flushed };
   }
 
@@ -336,6 +358,7 @@ export class Daemon {
 
   /** Commit (and push when configured) all buffered store changes. Returns whether a commit landed. */
   flush(message: string): boolean {
+    const span = startSpan('cs.flush');
     if (this.commitTimer) {
       clearTimeout(this.commitTimer);
       this.commitTimer = undefined;
@@ -344,12 +367,14 @@ export class Daemon {
     if (!this.dirty || !this.git) {
       this.dirty = false;
       this.pendingTurns = 0;
+      span.end({ skipped: true, message });
       return false;
     }
     const r = this.git.sync(message);
     this.dirty = false;
     this.pendingTurns = 0;
     if (r.commit.committed) this.stats.commits++;
+    span.end({ committed: r.commit.committed, message });
     return r.commit.committed;
   }
 
