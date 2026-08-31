@@ -97,10 +97,11 @@ export class SourceWatcher {
   }
 
   /** Start periodic scanning. Runs once immediately, then every `intervalMs`. */
-  start(onImported: (r: ScanResult) => void): void {
+  start(onImported: (r: ScanResult) => void, onScan?: (r: ScanResult) => void): void {
     if (this.timer) return;
     const tick = (): void => {
       const r = this.scanOnce();
+      onScan?.(r);
       if (r.imported > 0) onImported(r);
     };
     tick();

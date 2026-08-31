@@ -13,6 +13,7 @@ import { StateStore } from './state';
 import { GitStore } from './store/git';
 import { readEntries } from './store/scan';
 import { SourceWatcher, type ScanResult } from './watcher';
+import { TaskRegistry } from './tasks';
 import { OtelReceiver } from './telemetry/receiver';
 
 export type SessionEndHook = (sessionId: string, sessionDir: string) => void | Promise<void>;
@@ -83,13 +84,14 @@ export class Daemon {
   private pendingTurns = 0;
   private commitTimer?: ReturnType<typeof setTimeout>;
   private hygieneTimer?: ReturnType<typeof setInterval>;
+  private readonly tasks = new TaskRegistry();
   private hygieneKick?: ReturnType<typeof setTimeout>;
   private running = false;
   private readonly stats = { events: 0, turns: 0, commits: 0 };
   private readonly sessions = new Set<string>();
   readonly sessionService: SessionService;
   private readonly lagHist = monitorEventLoopDelay({ resolution: 20 });
-  private daemonVersion = '0.13.2';
+  private daemonVersion = '0.13.3';
   /** Live `session.event` subscribers. Missing `id` means all sessions. */
   private readonly subscribers = new Map<Socket, { id?: string }>();
 
@@ -161,7 +163,17 @@ export class Daemon {
       const w = new SourceWatcher(this.cfg, this.state);
       if (w.enabled) this.watcher = w;
     }
-    this.watcher?.start((r) => this.onWatcherImported(r));
+    this.watcher?.start(
+      (r) => this.onWatcherImported(r),
+      (r) => {
+        this.tasks.watcherScan(this.cfg.capture.watch.intervalMs);
+        if (r.imported > 0) {
+          this.tasks.record('watcher.scan', {
+            detail: `imported ${r.imported} (grok ${r.perAgent.grok.imported} · codex ${r.perAgent.codex.imported}) · ${r.turns} turns`,
+          });
+        }
+      },
+    );
     span.mark('watcher');
 
     // OTLP-trigger receiver: an agent's own telemetry export drives capture.
@@ -258,6 +270,7 @@ export class Daemon {
       }),
       queueDepth: () => this.pendingTurns,
       daemonVersion: this.daemonVersion,
+      tasks: this.tasks,
       subscribe: sock
         ? (filter) => {
             this.subscribers.set(sock, filter);
@@ -370,10 +383,14 @@ export class Daemon {
       span.end({ skipped: true, message });
       return false;
     }
+    const t0 = Date.now();
     const r = this.git.sync(message);
     this.dirty = false;
     this.pendingTurns = 0;
     if (r.commit.committed) this.stats.commits++;
+    if (r.commit.committed) {
+      this.tasks.record('store.flush', { detail: message, tookMs: Date.now() - t0 });
+    }
     span.end({ committed: r.commit.committed, message });
     return r.commit.committed;
   }

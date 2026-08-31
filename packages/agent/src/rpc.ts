@@ -18,6 +18,7 @@ import {
 } from '@unpolarize/code-sessions-schema';
 import type { CodeSessionsConfig } from './config';
 import { SessionService } from './sessionService';
+import type { TaskRegistry } from './tasks';
 
 export { DAEMON_PROTOCOL };
 
@@ -29,6 +30,8 @@ export interface RpcContext {
   daemonVersion: string;
   /** Register this connection for `session.event` notifications. */
   subscribe?: (filter: { id?: string }) => void;
+  /** Daemon task visibility (`task.list`). Optional — additive protocol. */
+  tasks?: TaskRegistry;
 }
 
 export async function handleRpc(ctx: RpcContext, req: JsonRpcRequest): Promise<JsonRpcResponse | null> {
@@ -91,6 +94,9 @@ export async function handleRpc(ctx: RpcContext, req: JsonRpcRequest): Promise<J
       case 'index.query': {
         const params = (req.params ?? {}) as SessionListParams;
         return reply(ctx.sessions.list(params));
+      }
+      case 'task.list': {
+        return reply(ctx.tasks?.list() ?? { running: [], recent: [] });
       }
       case 'store.sync':
         return reply({ ok: true });
